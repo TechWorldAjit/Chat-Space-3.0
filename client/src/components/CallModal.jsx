@@ -28,11 +28,25 @@ const CallModal = () => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const miniVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+
+  // Sync remote audio stream so voice is heard in both voice and video calls
+  useEffect(() => {
+    if (remoteAudioRef.current && remoteStream) {
+      remoteAudioRef.current.srcObject = remoteStream;
+      remoteAudioRef.current.play().catch((e) => {
+        console.warn("Remote audio autoplay prevented:", e);
+      });
+    }
+  }, [remoteStream, callState]);
 
   // Sync local stream with video element
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch((e) => {
+        console.warn("Local video play notice:", e);
+      });
     }
   }, [localStream, callState, isMinimized]);
 
@@ -40,11 +54,15 @@ const CallModal = () => {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch((e) => {
+        console.warn("Remote video play notice:", e);
+      });
     }
     if (miniVideoRef.current && (remoteStream || localStream)) {
       miniVideoRef.current.srcObject = remoteStream || localStream;
+      miniVideoRef.current.play().catch(() => {});
     }
-  }, [remoteStream, localStream, callState, isMinimized]);
+  }, [remoteStream, localStream, callState, isMinimized, callType, remoteMediaState.isVideoOff]);
 
   if (callState === "idle") return null;
 
@@ -222,6 +240,7 @@ const CallModal = () => {
   if (isMinimized && callState === "connected") {
     return (
       <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#1e1738]/95 border border-violet-500/50 p-2.5 px-4 rounded-full shadow-2xl backdrop-blur-xl animate-fade-in text-white">
+        <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
         <button
           type="button"
           onClick={toggleMinimize}
@@ -521,6 +540,8 @@ const CallModal = () => {
             </svg>
           </button>
         </div>
+        {/* Hidden Remote Audio Element to ensure voice is heard continuously */}
+        <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
       </div>
     </div>
   );

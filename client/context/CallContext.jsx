@@ -89,12 +89,15 @@ export const CallProvider = ({ children }) => {
   // Internal WebRTC refs
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
   const iceCandidateQueue = useRef([]);
   const timerIntervalRef = useRef(null);
   const activePartnerRef = useRef(null);
   const screenTrackRef = useRef(null);
+  const callStateRef = useRef(callState);
 
   activePartnerRef.current = activePartner;
+  callStateRef.current = callState;
 
   // Format seconds to mm:ss
   const formatDuration = (totalSeconds) => {
@@ -142,6 +145,7 @@ export const CallProvider = ({ children }) => {
     }
     setLocalStream(null);
     setRemoteStream(null);
+    remoteStreamRef.current = null;
   };
 
   // Close peer connection
@@ -156,7 +160,6 @@ export const CallProvider = ({ children }) => {
       }
       peerConnectionRef.current = null;
     }
-    iceCandidateQueue.current = [];
   };
 
   // Reset all call states
@@ -165,6 +168,8 @@ export const CallProvider = ({ children }) => {
     stopTimer();
     stopLocalTracks();
     closePeerConnection();
+    iceCandidateQueue.current = [];
+    remoteStreamRef.current = null;
 
     setCallState("idle");
     setActivePartner(null);
@@ -210,14 +215,21 @@ export const CallProvider = ({ children }) => {
     };
 
     pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        setRemoteStream(event.streams[0]);
+      console.log("[WebRTC] ontrack received:", event.track.kind);
+      let stream = event.streams && event.streams[0];
+      if (!stream) {
+        stream = remoteStreamRef.current || new MediaStream();
+        stream.addTrack(event.track);
       }
+      remoteStreamRef.current = stream;
+      // Always create a new MediaStream instance so React state reference changes and triggers UI re-render
+      setRemoteStream(new MediaStream(stream.getTracks()));
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-        console.log("WebRTC Connection State:", pc.connectionState);
+      console.log("WebRTC Connection State:", pc.connectionState);
+      if (pc.connectionState === "connected") {
+        setCallState("connected");
       }
     };
 
@@ -278,7 +290,7 @@ export const CallProvider = ({ children }) => {
 
       socket.emit("callUser", {
         userToCall: recipient._id,
-        signalData: offer,
+        signalData: { type: offer.type, sdp: offer.sdp },
         callType: requestedType,
         callerInfo: {
           _id: authUser._id,
@@ -330,8 +342,12 @@ export const CallProvider = ({ children }) => {
         const candidate = iceCandidateQueue.current.shift();
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-          console.warn("Could not add queued candidate:", e);
+        } catch {
+          try {
+            await pc.addIceCandidate(candidate);
+          } catch (e) {
+            console.warn("Could not add queued candidate:", e);
+          }
         }
       }
 
@@ -340,7 +356,7 @@ export const CallProvider = ({ children }) => {
 
       socket.emit("answerCall", {
         to: from,
-        signal: answer,
+        signal: { type: answer.type, sdp: answer.sdp },
       });
 
       callSounds.playConnectTone();
@@ -526,7 +542,7 @@ export const CallProvider = ({ children }) => {
     const handleIncomingCall = (data) => {
       console.log("Incoming call event received:", data);
       // If already in another call, reject automatically
-      if (callState !== "idle") {
+      if (callStateRef.current !== "idle") {
         socket.emit("rejectCall", {
           to: data.from,
           reason: "User is on another call",
@@ -549,9 +565,11 @@ export const CallProvider = ({ children }) => {
 
       if (peerConnectionRef.current && signal) {
         try {
-          await peerConnectionRef.current.setRemoteDescription(
-            new RTCSessionDescription(signal)
-          );
+          if (peerConnectionRef.current.signalingState === "have-local-offer") {
+            await peerConnectionRef.current.setRemoteDescription(
+              new RTCSessionDescription(signal)
+            );
+          }
 
           // Flush any queued ICE candidates
           while (iceCandidateQueue.current.length > 0) {
@@ -560,8 +578,12 @@ export const CallProvider = ({ children }) => {
               await peerConnectionRef.current.addIceCandidate(
                 new RTCIceCandidate(candidate)
               );
-            } catch (e) {
-              console.warn("Could not add queued candidate:", e);
+            } catch {
+              try {
+                await peerConnectionRef.current.addIceCandidate(candidate);
+              } catch (err2) {
+                console.warn("Could not add queued candidate:", err2);
+              }
             }
           }
 
@@ -574,6 +596,10 @@ export const CallProvider = ({ children }) => {
           toast.error("Call connection failed");
           resetCallState();
         }
+      } else {
+        callSounds.playConnectTone();
+        setCallState("connected");
+        startTimer();
       }
     };
 
@@ -612,8 +638,12 @@ export const CallProvider = ({ children }) => {
       if (pc && pc.remoteDescription && pc.remoteDescription.type) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {
-          console.warn("Error adding ICE candidate:", err);
+        } catch {
+          try {
+            await pc.addIceCandidate(candidate);
+          } catch (err) {
+            console.warn("Error adding ICE candidate:", err);
+          }
         }
       } else {
         iceCandidateQueue.current.push(candidate);
@@ -652,7 +682,7 @@ export const CallProvider = ({ children }) => {
       socket.off("iceCandidate", handleIceCandidate);
       socket.off("mediaToggled", handleMediaToggled);
     };
-  }, [socket, callState]);
+  }, [socket]);
 
   // Clean up on component unmount
   useEffect(() => {
