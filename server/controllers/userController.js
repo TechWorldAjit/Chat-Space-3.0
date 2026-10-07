@@ -3,7 +3,6 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 
-// Signup a new user
 export const signup = async (req, res) => {
   const { fullName, email, password, bio } = req.body;
 
@@ -55,7 +54,6 @@ export const signup = async (req, res) => {
   }
 };
 
-// Controller to login a user
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -103,12 +101,32 @@ export const login = async (req, res) => {
   }
 };
 
-// Controller to check if user is authenticated
 export const checkAuth = async (req, res) => {
   res.json({ success: true, user: req.user });
 };
 
-// Controller to update user profile details
+export const getCloudinarySignature = async (req, res) => {
+  try {
+    const timestamp = Math.round(new Date().getTime() / 1000);
+    const folder = "profile_pics";
+    const signature = cloudinary.utils.api_sign_request(
+      { folder, timestamp },
+      process.env.CLOUDINARY_API_SECRET
+    );
+    return res.json({
+      success: true,
+      timestamp,
+      signature,
+      folder,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      apiKey: process.env.CLOUDINARY_API_KEY,
+    });
+  } catch (error) {
+    console.error("Cloudinary sign error:", error.message);
+    return res.json({ success: false, message: error.message });
+  }
+};
+
 export const updateProfile = async (req, res) => {
   try {
     const { profilePic, bio, fullName } = req.body;
@@ -116,16 +134,21 @@ export const updateProfile = async (req, res) => {
 
     const updateFields = {};
     if (bio !== undefined) updateFields.bio = bio;
-    if (fullName) updateFields.fullName = fullName;
+    if (fullName) updateFields.fullName = fullName.trim();
 
-    if (profilePic && profilePic.startsWith("data:image")) {
-      const upload = await cloudinary.uploader.upload(profilePic, {
-        folder: "profile_pics",
-        transformation: [{ width: 256, height: 256, crop: "fill" }],
-      });
-      updateFields.profilePic = upload.secure_url;
-    } else if (profilePic) {
-      updateFields.profilePic = profilePic;
+    if (profilePic && typeof profilePic === "string") {
+      if (profilePic.startsWith("data:image")) {
+        const upload = await cloudinary.uploader.upload(profilePic, {
+          folder: "profile_pics",
+          resource_type: "image",
+          transformation: [{ width: 256, height: 256, crop: "fill" }],
+        });
+        if (upload && upload.secure_url) {
+          updateFields.profilePic = upload.secure_url;
+        }
+      } else if (profilePic.startsWith("http://") || profilePic.startsWith("https://")) {
+        updateFields.profilePic = profilePic;
+      }
     }
 
     const updatedUser = await User.findByIdAndUpdate(

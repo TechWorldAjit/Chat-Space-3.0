@@ -19,7 +19,6 @@ const AISummaryModal = ({ isOpen, onClose, summaryData, isLoading, groupName }) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="bg-[#282142] border border-violet-500/40 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl text-white flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-200">
-        {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gradient-to-r from-purple-900/40 to-violet-900/40">
           <div className="flex items-center gap-2">
             <span className="text-xl">✨</span>
@@ -38,7 +37,6 @@ const AISummaryModal = ({ isOpen, onClose, summaryData, isLoading, groupName }) 
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-5">
           {isLoading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-4 text-center">
@@ -55,7 +53,6 @@ const AISummaryModal = ({ isOpen, onClose, summaryData, isLoading, groupName }) 
             </div>
           ) : summaryData ? (
             <>
-              {/* Summary Section */}
               <div className="bg-white/5 border border-violet-500/20 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-violet-400">
@@ -67,7 +64,6 @@ const AISummaryModal = ({ isOpen, onClose, summaryData, isLoading, groupName }) 
                 </p>
               </div>
 
-              {/* Key Takeaways Section */}
               {summaryData.keyTakeaways && summaryData.keyTakeaways.length > 0 && (
                 <div className="bg-white/5 border border-violet-500/20 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
@@ -96,7 +92,6 @@ const AISummaryModal = ({ isOpen, onClose, summaryData, isLoading, groupName }) 
           )}
         </div>
 
-        {/* Modal Footer */}
         <div className="px-6 py-4 border-t border-gray-700 bg-[#1e1933] flex items-center justify-between">
           <p className="text-[11px] text-gray-400 flex items-center gap-1">
             <span>Powered by</span>

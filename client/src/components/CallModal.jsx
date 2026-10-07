@@ -30,7 +30,6 @@ const CallModal = () => {
   const miniVideoRef = useRef(null);
   const remoteAudioRef = useRef(null);
 
-  // Sync remote audio stream so voice is heard in both voice and video calls
   useEffect(() => {
     if (remoteAudioRef.current && remoteStream) {
       remoteAudioRef.current.srcObject = remoteStream;
@@ -40,7 +39,6 @@ const CallModal = () => {
     }
   }, [remoteStream, callState]);
 
-  // Sync local stream with video element
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
@@ -50,7 +48,6 @@ const CallModal = () => {
     }
   }, [localStream, callState, isMinimized]);
 
-  // Sync remote stream with video element
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
@@ -69,18 +66,13 @@ const CallModal = () => {
   const partnerName = activePartner?.fullName || "Chat Contact";
   const partnerPic = activePartner?.profilePic || assets.avatar_icon;
 
-  // =========================================================================
-  // 1. INCOMING CALL NOTIFICATION (MODAL)
-  // =========================================================================
   if (callState === "incoming") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
         <div className="relative w-full max-w-sm rounded-3xl bg-[#1d1633]/90 border border-violet-500/40 p-6 flex flex-col items-center shadow-2xl text-white overflow-hidden">
-          {/* Ambient background glow */}
           <div className="absolute -top-16 -left-16 w-36 h-36 bg-purple-600/30 rounded-full blur-3xl pointer-events-none"></div>
           <div className="absolute -bottom-16 -right-16 w-36 h-36 bg-indigo-600/30 rounded-full blur-3xl pointer-events-none"></div>
 
-          {/* Pulsing Avatar with radar effect */}
           <div className="relative my-4 flex items-center justify-center">
             <span className="absolute w-28 h-28 rounded-full bg-violet-500/20 animate-ping"></span>
             <span className="absolute w-24 h-24 rounded-full bg-violet-600/30 animate-pulse"></span>
@@ -102,9 +94,7 @@ const CallModal = () => {
             Incoming {callType === "video" ? "Video" : "Voice"} Call...
           </p>
 
-          {/* Action Buttons */}
           <div className="flex items-center justify-center gap-10 mt-8 w-full">
-            {/* Decline */}
             <div className="flex flex-col items-center gap-2">
               <button
                 type="button"
@@ -130,7 +120,6 @@ const CallModal = () => {
               <span className="text-xs text-gray-300">Decline</span>
             </div>
 
-            {/* Accept */}
             <div className="flex flex-col items-center gap-2">
               <button
                 type="button"
@@ -178,9 +167,6 @@ const CallModal = () => {
     );
   }
 
-  // =========================================================================
-  // 2. OUTGOING CALL SCREEN (CALLING...)
-  // =========================================================================
   if (callState === "calling") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -204,7 +190,6 @@ const CallModal = () => {
           </p>
           <span className="text-xs text-gray-400 mt-1">Ringing...</span>
 
-          {/* Cancel button */}
           <div className="mt-8 flex flex-col items-center gap-2">
             <button
               type="button"
@@ -234,9 +219,6 @@ const CallModal = () => {
     );
   }
 
-  // =========================================================================
-  // 3. MINIMIZED FLOATING CALL PILL
-  // =========================================================================
   if (isMinimized && callState === "connected") {
     return (
       <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#1e1738]/95 border border-violet-500/50 p-2.5 px-4 rounded-full shadow-2xl backdrop-blur-xl animate-fade-in text-white">
@@ -264,7 +246,6 @@ const CallModal = () => {
           </div>
         </button>
 
-        {/* Quick controls */}
         <div className="flex items-center gap-1.5 ml-1 border-l border-white/10 pl-2">
           <button
             type="button"
@@ -312,13 +293,9 @@ const CallModal = () => {
     );
   }
 
-  // =========================================================================
-  // 4. FULL CONNECTED CALL MODAL (VOICE / VIDEO)
-  // =========================================================================
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-xl animate-fade-in">
       <div className="relative w-full max-w-4xl h-[85vh] max-h-[720px] rounded-3xl bg-[#140e26] border border-violet-500/40 flex flex-col shadow-2xl text-white overflow-hidden">
-        {/* Top Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/60 to-transparent z-20">
           <div className="flex items-center gap-3">
             <img
@@ -357,11 +334,9 @@ const CallModal = () => {
           </div>
         </div>
 
-        {/* Central Display Area */}
         <div className="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden bg-[#0c0818]">
           {callType === "video" ? (
             <>
-              {/* Remote Video Stream */}
               {remoteStream && !remoteMediaState.isVideoOff ? (
                 <video
                   ref={remoteVideoRef}
@@ -390,7 +365,6 @@ const CallModal = () => {
                 </div>
               )}
 
-              {/* Local PiP (Picture in Picture) Video Box */}
               <div className="absolute bottom-20 right-4 sm:bottom-24 sm:right-6 w-28 h-36 sm:w-40 sm:h-52 rounded-2xl overflow-hidden shadow-2xl border-2 border-violet-400/60 bg-black/80 z-20">
                 {localStream && !isVideoOff ? (
                   <video
@@ -417,7 +391,6 @@ const CallModal = () => {
               </div>
             </>
           ) : (
-            /* Voice Call Screen */
             <div className="flex flex-col items-center justify-center gap-6 p-6">
               <div className="relative flex items-center justify-center">
                 <span className="absolute w-44 h-44 rounded-full bg-violet-600/20 animate-ping"></span>
@@ -449,9 +422,7 @@ const CallModal = () => {
           )}
         </div>
 
-        {/* Floating Call Control Bar */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 sm:gap-4 bg-[#1e1738]/90 border border-violet-500/40 p-3 px-6 rounded-full shadow-2xl backdrop-blur-xl">
-          {/* Mute Toggle */}
           <button
             type="button"
             onClick={toggleMute}
@@ -474,7 +445,6 @@ const CallModal = () => {
             )}
           </button>
 
-          {/* Video Toggle (Video Calls only) */}
           {callType === "video" && (
             <button
               type="button"
@@ -499,7 +469,6 @@ const CallModal = () => {
             </button>
           )}
 
-          {/* Screen Share (Video Calls only) */}
           {callType === "video" && (
             <button
               type="button"
@@ -517,7 +486,6 @@ const CallModal = () => {
             </button>
           )}
 
-          {/* End Call Button */}
           <button
             type="button"
             onClick={endCall}
@@ -540,7 +508,6 @@ const CallModal = () => {
             </svg>
           </button>
         </div>
-        {/* Hidden Remote Audio Element to ensure voice is heard continuously */}
         <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
       </div>
     </div>

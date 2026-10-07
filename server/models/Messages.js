@@ -35,7 +35,6 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// High performance compound indexes for instant chat history & unseen counters
 messageSchema.index({ senderId: 1, receiverId: 1, createdAt: 1 });
 messageSchema.index({ receiverId: 1, seen: 1 });
 messageSchema.index({ groupId: 1, createdAt: 1 });

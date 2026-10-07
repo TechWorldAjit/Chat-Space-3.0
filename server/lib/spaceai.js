@@ -14,18 +14,13 @@ export const SPACEAI_AVATAR =
 
 let cachedSpaceAIUser = null;
 
-/**
- * Get or create the persistent SpaceAI user in MongoDB
- */
 export const getOrCreateSpaceAIUser = async () => {
   await connectDB();
   if (cachedSpaceAIUser) {
     try {
       const existing = await User.findById(cachedSpaceAIUser._id);
       if (existing) return existing;
-    } catch {
-      // Continue to query DB
-    }
+    } catch {}
   }
 
   let spaceAI = await User.findOne({
@@ -47,7 +42,6 @@ export const getOrCreateSpaceAIUser = async () => {
     });
     console.log("SpaceAI system user initialized in MongoDB with ID:", spaceAI._id);
   } else {
-    // Ensure isAI and profile details are up to date
     let updated = false;
     if (!spaceAI.isAI) {
       spaceAI.isAI = true;
@@ -66,9 +60,6 @@ export const getOrCreateSpaceAIUser = async () => {
   return spaceAI;
 };
 
-/**
- * Get the GoogleGenAI client instance
- */
 const getGeminiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === "YOUR_NEW_GEMINI_API_KEY" || apiKey.trim() === "") {
@@ -77,9 +68,6 @@ const getGeminiClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-/**
- * Detect whether the user prompt is requesting an image generation
- */
 export const isImagePrompt = (text) => {
   if (!text || typeof text !== "string") return false;
   const trimmed = text.trim().toLowerCase();
@@ -105,9 +93,6 @@ export const isImagePrompt = (text) => {
   return patterns.some((pattern) => pattern.test(trimmed));
 };
 
-/**
- * Clean and extract the core prompt for image generation
- */
 export const extractImagePrompt = (text) => {
   if (!text) return "";
   let prompt = text.trim();
@@ -120,9 +105,6 @@ export const extractImagePrompt = (text) => {
   return prompt.trim() || text.trim();
 };
 
-/**
- * Generate an image using Gemini / Imagen and upload to Cloudinary
- */
 export const generateAIImageReply = async (promptText) => {
   try {
     const ai = getGeminiClient();
@@ -130,7 +112,6 @@ export const generateAIImageReply = async (promptText) => {
 
     let base64Image = null;
 
-    // Try Imagen 3 first via generateImages
     try {
       const imagenResponse = await ai.models.generateImages({
         model: "imagen-3.0-generate-002",
@@ -153,7 +134,6 @@ export const generateAIImageReply = async (promptText) => {
       console.warn("Imagen generation error, attempting fallback:", imagenErr.message);
     }
 
-    // Multimodal image generation models
     const imageCandidateModels = [
       "gemini-3.1-flash-image",
       "gemini-3-pro-image",
@@ -190,7 +170,6 @@ export const generateAIImageReply = async (promptText) => {
       throw new Error("NO_IMAGE_DATA_GENERATED");
     }
 
-    // Upload to Cloudinary to get permanent HTTPS URL
     const uploadResult = await cloudinary.uploader.upload(
       `data:image/jpeg;base64,${base64Image}`,
       {
@@ -221,15 +200,11 @@ export const generateAIImageReply = async (promptText) => {
   }
 };
 
-/**
- * Generate a text response using Gemini with multi-turn conversation memory
- */
 export const generateAITextReply = async (userId, newPrompt) => {
   try {
     const ai = getGeminiClient();
     const spaceAIUser = await getOrCreateSpaceAIUser();
 
-    // Fetch the last 20 messages between the user and SpaceAI to maintain memory
     const historyMessages = await Message.find({
       $or: [
         { senderId: userId, receiverId: spaceAIUser._id },
@@ -239,7 +214,6 @@ export const generateAITextReply = async (userId, newPrompt) => {
       .sort({ createdAt: -1 })
       .limit(20);
 
-    // Reverse to chronological order (oldest to newest)
     const chronologicalHistory = historyMessages.reverse();
 
     const contents = [];
@@ -254,7 +228,6 @@ export const generateAITextReply = async (userId, newPrompt) => {
       }
     }
 
-    // Append the current prompt if not already the last history entry
     const lastContent = contents[contents.length - 1];
     if (!lastContent || lastContent.role !== "user" || lastContent.parts[0]?.text !== newPrompt) {
       contents.push({
@@ -263,7 +236,6 @@ export const generateAITextReply = async (userId, newPrompt) => {
       });
     }
 
-    // Generate content using Gemini
     let responseText = "";
 
     const candidateModels = [
@@ -326,9 +298,6 @@ export const generateAITextReply = async (userId, newPrompt) => {
   }
 };
 
-/**
- * Generate a concise group conversation summary and key takeaways
- */
 export const generateGroupSummary = async (messages, groupName = "Group") => {
   try {
     const ai = getGeminiClient();
@@ -340,7 +309,6 @@ export const generateGroupSummary = async (messages, groupName = "Group") => {
       };
     }
 
-    // Format conversation history (limit to last 100 messages)
     const recentMessages = messages.slice(-100);
     const conversationTranscript = recentMessages
       .map((m) => {
@@ -453,4 +421,3 @@ Ensure the summary is accurate to the messages provided, objective, and does not
     };
   }
 };
-

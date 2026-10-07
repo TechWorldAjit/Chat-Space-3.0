@@ -9,14 +9,13 @@ export const ChatProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [folders, setFolders] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null); // Can be a User or a Group (with isGroup: true)
+  const [selectedUser, setSelectedUser] = useState(null);
   const [unseenMessages, setUnseenMessages] = useState({});
   const [groupUnseenMessages, setGroupUnseenMessages] = useState({});
   const [selectedFolder, setSelectedFolder] = useState("all");
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
-  // AI Summary Modal State
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
@@ -24,7 +23,6 @@ export const ChatProvider = ({ children }) => {
 
   const { socket, axios, authUser } = useContext(AuthContext);
 
-  // Function to get all users for sidebar
   const getUsers = async () => {
     try {
       const { data } = await axios.get("/api/messages/users");
@@ -38,7 +36,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Function to get all groups for current user
   const getGroups = async () => {
     try {
       const { data } = await axios.get("/api/groups");
@@ -51,7 +48,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Function to get private folders for current user
   const getFolders = async () => {
     try {
       const { data } = await axios.get("/api/folders");
@@ -63,7 +59,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Function to get messages for selected user (1-to-1)
   const getMessages = async (userId) => {
     try {
       setIsAiTyping(false);
@@ -77,7 +72,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Function to get messages for selected group
   const getGroupMessages = async (groupId) => {
     try {
       setIsAiTyping(false);
@@ -92,12 +86,10 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Function to send message to selected user (1-to-1)
   const sendMessage = async (messageData) => {
     try {
       if (!selectedUser) return;
 
-      // Check if it is a group chat
       if (selectedUser.isGroup) {
         return await sendGroupMessage(messageData);
       }
@@ -137,7 +129,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Function to send message to selected group
   const sendGroupMessage = async (messageData) => {
     try {
       if (!selectedUser || !selectedUser.isGroup) return;
@@ -152,7 +143,6 @@ export const ChatProvider = ({ children }) => {
       );
 
       if (data.success) {
-        // Optimistically add if not already received via socket
         setMessages((prev) => {
           if (prev.some((m) => m._id === data.newMessage._id)) return prev;
           return [...prev, data.newMessage];
@@ -170,7 +160,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Create a new group
   const createGroup = async (groupData) => {
     try {
       const { data } = await axios.post("/api/groups", groupData);
@@ -190,7 +179,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Update group details
   const updateGroup = async (groupId, updateData) => {
     try {
       const { data } = await axios.put(`/api/groups/${groupId}`, updateData);
@@ -214,7 +202,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Add members to group
   const addGroupMembers = async (groupId, memberIds) => {
     try {
       const { data } = await axios.post(`/api/groups/${groupId}/members`, {
@@ -240,7 +227,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Remove member from group or leave group
   const removeGroupMember = async (groupId, memberId) => {
     try {
       const { data } = await axios.delete(
@@ -249,7 +235,6 @@ export const ChatProvider = ({ children }) => {
       if (data.success) {
         toast.success(data.message || "Member removed");
         if (memberId === authUser?._id) {
-          // If current user left
           setGroups((prev) => prev.filter((g) => g._id !== groupId));
           if (selectedUser?._id === groupId) {
             setSelectedUser(null);
@@ -274,7 +259,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Delete group
   const deleteGroup = async (groupId) => {
     try {
       const { data } = await axios.delete(`/api/groups/${groupId}`);
@@ -295,7 +279,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Folder Actions
   const createFolder = async (name) => {
     try {
       const { data } = await axios.post("/api/folders", { name });
@@ -396,7 +379,6 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // AI Group Summary Trigger
   const summarizeGroup = async (groupId, groupName = "") => {
     try {
       setSummaryGroupName(groupName || selectedUser?.name || "Group");
@@ -429,11 +411,9 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Subscribe to realtime messages & group events
   const subscribeToMessages = () => {
     if (!socket) return;
 
-    // 1-to-1 message listener
     socket.on("newMessage", (newMessage) => {
       if (
         selectedUser &&
@@ -454,7 +434,6 @@ export const ChatProvider = ({ children }) => {
       }
     });
 
-    // Group message listener
     socket.on("newGroupMessage", (newGroupMsg) => {
       const isCurrentGroup =
         selectedUser &&
@@ -476,7 +455,6 @@ export const ChatProvider = ({ children }) => {
       }
     });
 
-    // Realtime group creation / update / deletion listeners
     socket.on("newGroupCreated", (newGroup) => {
       setGroups((prev) => {
         if (prev.some((g) => g._id === newGroup._id)) return prev;
@@ -504,7 +482,6 @@ export const ChatProvider = ({ children }) => {
     });
   };
 
-  // Unsubscribe from socket listeners
   const unsubscribeFromMessages = () => {
     if (!socket) return;
     socket.off("newMessage");

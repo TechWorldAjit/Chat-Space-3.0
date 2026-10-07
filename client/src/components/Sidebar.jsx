@@ -38,13 +38,10 @@ const Sidebar = () => {
   const [editingFolder, setEditingFolder] = useState(null);
   const [folderNameInput, setFolderNameInput] = useState("");
 
-  // Folder context menu state
   const [activeFolderMenu, setActiveFolderMenu] = useState(null);
 
-  // Add-to-folder dropdown state
   const [chatForFolderMenu, setChatForFolderMenu] = useState(null);
 
-  // Create Group Form State
   const [groupName, setGroupName] = useState("");
   const [groupDesc, setGroupDesc] = useState("");
   const [groupPicPreview, setGroupPicPreview] = useState("");
@@ -61,7 +58,6 @@ const Sidebar = () => {
     getFolders();
   }, []);
 
-  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -78,20 +74,16 @@ const Sidebar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filter users by search
   const filteredUsers = users.filter((user) =>
     user.fullName.toLowerCase().includes(input.toLowerCase())
   );
 
-  // Filter groups by search
   const filteredGroups = groups.filter((group) =>
     group.name.toLowerCase().includes(input.toLowerCase())
   );
 
-  // Get active folder's chats
   const activeFolderObj = folders.find((f) => f._id === selectedFolder);
 
-  // Filter chats by selected folder
   const displayedUsers =
     selectedFolder === "all"
       ? filteredUsers
@@ -110,7 +102,6 @@ const Sidebar = () => {
           )
         );
 
-  // Handle group image select
   const handleGroupPicChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -125,7 +116,6 @@ const Sidebar = () => {
     reader.readAsDataURL(file);
   };
 
-  // Toggle member in group creation
   const toggleMemberSelection = (userId) => {
     setSelectedMemberIds((prev) =>
       prev.includes(userId)
@@ -134,7 +124,6 @@ const Sidebar = () => {
     );
   };
 
-  // Handle Submit Create Group
   const handleCreateGroupSubmit = async (e) => {
     e.preventDefault();
     if (!groupName.trim()) {
@@ -164,7 +153,6 @@ const Sidebar = () => {
     }
   };
 
-  // Handle Create or Rename Folder
   const handleFolderSubmit = async (e) => {
     e.preventDefault();
     if (!folderNameInput.trim()) return;
@@ -180,7 +168,6 @@ const Sidebar = () => {
     setFolderNameInput("");
   };
 
-  // Handle Chat Folder toggle
   const handleToggleChatInFolder = async (folder, chatType, chatId) => {
     const isInside = folder.chats?.some(
       (c) => c.chatType === chatType && c.chatId.toString() === chatId.toString()
@@ -199,13 +186,13 @@ const Sidebar = () => {
         selectedUser ? "max-md:hidden" : ""
       }`}
     >
-      {/* Top Header */}
+      
       <div className="pb-4">
         <div className="flex justify-between items-center">
           <img src={assets.logo} alt="logo" className="max-w-40" />
 
           <div className="relative py-2 flex items-center gap-3" ref={menuRef}>
-            {/* Quick Create Group Button */}
+            
             <button
               onClick={() => setIsGroupModalOpen(true)}
               title="Create Group"
@@ -214,7 +201,7 @@ const Sidebar = () => {
               👥+
             </button>
 
-            {/* Menu icon dropdown */}
+            
             <div className="relative group">
               <img
                 onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -269,7 +256,7 @@ const Sidebar = () => {
           </div>
         </div>
 
-        {/* Search Bar */}
+        
         <div className="bg-[#282142] rounded-full flex items-center gap-2 py-2.5 px-4 mt-4">
           <img src={assets.search_icon} alt="Search" className="w-3" />
           <input
@@ -289,7 +276,7 @@ const Sidebar = () => {
           )}
         </div>
 
-        {/* Chat Folders Filter Pills */}
+        
         <div className="mt-3.5 flex items-center gap-1.5 overflow-x-auto pb-1 text-xs select-none">
           <button
             onClick={() => setSelectedFolder("all")}
@@ -331,7 +318,7 @@ const Sidebar = () => {
                 </span>
               </button>
 
-              {/* Folder Context Menu */}
+              
               {activeFolderMenu === folder._id && (
                 <div className="absolute top-full left-0 mt-1 z-40 w-32 p-2 rounded-xl bg-[#282142] border border-gray-600 shadow-xl text-xs flex flex-col gap-1">
                   <button
@@ -359,7 +346,7 @@ const Sidebar = () => {
             </div>
           ))}
 
-          {/* Create Folder Plus Button */}
+          
           <button
             onClick={() => {
               setEditingFolder(null);
@@ -374,9 +361,9 @@ const Sidebar = () => {
         </div>
       </div>
 
-      {/* Main Chats List (Groups + Direct Messages) */}
+      
       <div className="flex flex-col gap-1 flex-1 overflow-y-auto pr-0.5">
-        {/* GROUPS SECTION */}
+        
         {displayedGroups.length > 0 && (
           <div className="flex flex-col gap-1 mb-2">
             <div className="px-2 py-1 text-[11px] font-semibold tracking-wider text-violet-300/80 uppercase">
@@ -439,7 +426,7 @@ const Sidebar = () => {
                       </span>
                     )}
 
-                    {/* Folder assignment button */}
+                    
                     <div className="relative chat-folder-menu">
                       <button
                         onClick={(e) => {
@@ -505,7 +492,7 @@ const Sidebar = () => {
           </div>
         )}
 
-        {/* DIRECT MESSAGES SECTION */}
+        
         <div className="flex flex-col gap-1">
           <div className="px-2 py-1 text-[11px] font-semibold tracking-wider text-gray-400 uppercase">
             Direct Messages ({displayedUsers.length})
@@ -565,7 +552,7 @@ const Sidebar = () => {
                     </span>
                   )}
 
-                  {/* Folder assignment button */}
+                  
                   <div className="relative chat-folder-menu">
                     <button
                       onClick={(e) => {
@@ -646,7 +633,7 @@ const Sidebar = () => {
         )}
       </div>
 
-      {/* ================= MODAL: CREATE GROUP ================= */}
+      
       {isGroupModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-[#282142] border border-gray-600 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl text-white flex flex-col max-h-[90vh]">
@@ -666,7 +653,7 @@ const Sidebar = () => {
               onSubmit={handleCreateGroupSubmit}
               className="p-6 flex flex-col gap-4 overflow-y-auto flex-1"
             >
-              {/* Group Avatar Upload */}
+              
               <div className="flex items-center gap-4">
                 <label
                   htmlFor="groupPic"
@@ -704,7 +691,7 @@ const Sidebar = () => {
                 </div>
               </div>
 
-              {/* Group Description */}
+              
               <textarea
                 rows={2}
                 placeholder="Group Description (optional)..."
@@ -713,7 +700,7 @@ const Sidebar = () => {
                 className="w-full p-2.5 bg-white/5 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-violet-500"
               />
 
-              {/* Select Members Section */}
+              
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-medium text-gray-300">
@@ -768,7 +755,7 @@ const Sidebar = () => {
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => {}} // handled by parent div
+                            onChange={() => {}}
                             className="accent-violet-500"
                           />
                         </div>
@@ -777,7 +764,7 @@ const Sidebar = () => {
                 </div>
               </div>
 
-              {/* Submit Button */}
+              
               <button
                 type="submit"
                 disabled={isCreatingGroup}
@@ -797,7 +784,7 @@ const Sidebar = () => {
         </div>
       )}
 
-      {/* ================= MODAL: CREATE / RENAME FOLDER ================= */}
+      
       {isFolderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-[#282142] border border-gray-600 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl text-white flex flex-col">

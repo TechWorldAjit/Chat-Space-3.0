@@ -1,6 +1,7 @@
 import express from "express";
 import {
   checkAuth,
+  getCloudinarySignature,
   login,
   signup,
   updateProfile,
@@ -13,5 +14,6 @@ userRouter.post("/signup", signup);
 userRouter.post("/login", login);
 userRouter.put("/update-profile", protectRoute, updateProfile);
 userRouter.get("/check", protectRoute, checkAuth);
+userRouter.get("/cloudinary-sign", protectRoute, getCloudinarySignature);
 
 export default userRouter;

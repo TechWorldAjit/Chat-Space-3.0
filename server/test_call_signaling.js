@@ -38,7 +38,6 @@ async function runCallTests() {
     const clientC = await connectClient(userCId);
     console.log("✓ Connected 3 test socket clients (User A, User B, User C)");
 
-    // Test 1: Call unavailable when calling an offline user
     console.log("\n--- TEST 1: Calling offline user ---");
     const offlineTestPromise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timeout waiting for callUnavailable")), 3000);
@@ -61,7 +60,6 @@ async function runCallTests() {
     });
     await offlineTestPromise;
 
-    // Test 2: Voice Call Offer and Incoming Call Reception
     console.log("\n--- TEST 2: Voice Call Offer & Incoming Call Reception ---");
     const incomingCallPromise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timeout waiting for incomingCall")), 3000);
@@ -84,7 +82,6 @@ async function runCallTests() {
     });
     await incomingCallPromise;
 
-    // Test 3: User C tries to call User B while User B is receiving call (Busy check)
     console.log("\n--- TEST 3: User Busy Check ---");
     const busyCheckPromise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timeout waiting for callBusy")), 3000);
@@ -107,7 +104,6 @@ async function runCallTests() {
     });
     await busyCheckPromise;
 
-    // Test 4: Answer Call & Establish Call Accepted
     console.log("\n--- TEST 4: Answering Call ---");
     const answerPromise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timeout waiting for callAccepted")), 3000);
@@ -134,7 +130,6 @@ async function runCallTests() {
       throw new Error("Active calls not registered in server state");
     }
 
-    // Test 5: ICE Candidate Exchange
     console.log("\n--- TEST 5: ICE Candidate Exchange ---");
     const icePromise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timeout waiting for iceCandidate")), 3000);
@@ -155,7 +150,6 @@ async function runCallTests() {
     });
     await icePromise;
 
-    // Test 6: Media State Toggle (Mute / Camera)
     console.log("\n--- TEST 6: Media State Toggle Sync ---");
     const mediaTogglePromise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timeout waiting for mediaToggled")), 3000);
@@ -177,7 +171,6 @@ async function runCallTests() {
     });
     await mediaTogglePromise;
 
-    // Test 7: Ending Call Cleanly
     console.log("\n--- TEST 7: Ending Call Cleanly ---");
     const endCallPromise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timeout waiting for callEnded")), 3000);
@@ -201,7 +194,6 @@ async function runCallTests() {
       throw new Error("Active calls state was not cleaned up after endCall");
     }
 
-    // Test 8: Video Call & Rejection Flow
     console.log("\n--- TEST 8: Video Call & Rejection Flow ---");
     const callRejectedPromise = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timeout waiting for callRejected")), 3000);
@@ -230,9 +222,7 @@ async function runCallTests() {
     });
     await callRejectedPromise;
 
-    // Test 9: Peer Disconnection during Active Call
     console.log("\n--- TEST 9: Peer Disconnection Clean Handling ---");
-    // Connect A and C in a call
     clientA.emit("callUser", {
       userToCall: userCId,
       signalData: { type: "offer", sdp: "offer_ac" },

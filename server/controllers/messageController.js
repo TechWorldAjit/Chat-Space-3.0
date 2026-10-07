@@ -9,12 +9,10 @@ import {
   SPACEAI_EMAIL,
 } from "../lib/spaceai.js";
 
-// Get all users except the logged in user with optimized aggregation
 export const getUsersForSidebar = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Run user fetch and unseen message aggregation concurrently in parallel
     const [filteredUsers, unseenAgg] = await Promise.all([
       User.find({ _id: { $ne: userId } })
         .select("-password")
@@ -40,7 +38,6 @@ export const getUsersForSidebar = async (req, res) => {
   }
 };
 
-// Get all messages for selected user
 export const getMessages = async (req, res) => {
   try {
     const { id: selectedUserId } = req.params;
@@ -68,7 +65,6 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// API to mark messages as seen using message id
 export const markMessageAsSeen = async (req, res) => {
   try {
     const { id } = req.params;
@@ -80,7 +76,6 @@ export const markMessageAsSeen = async (req, res) => {
   }
 };
 
-// Send message to selected user
 export const sendMessage = async (req, res) => {
   try {
     const { text, image, fileData, fileName, fileType, fileSize, folderFileCount } = req.body;
@@ -113,16 +108,13 @@ export const sendMessage = async (req, res) => {
       folderFileCount,
     });
 
-    // Check if receiver is SpaceAI
     const receiverUser = await User.findById(receiverId).select("isAI email").lean();
     const isReceiverAI =
       receiverUser?.isAI || receiverUser?.email === SPACEAI_EMAIL;
 
     if (isReceiverAI) {
-      // Respond to HTTP request immediately so user sees their own message
       res.json({ success: true, newMessage });
 
-      // Asynchronously process AI reply
       (async () => {
         try {
           let aiMessage;
@@ -156,10 +148,12 @@ export const sendMessage = async (req, res) => {
             });
           }
 
-          // Emit to sender socket
-          const senderSocketId = userSocketMap[senderId.toString()];
-          if (senderSocketId) {
-            io.to(senderSocketId).emit("newMessage", aiMessage);
+          if (io) {
+            io.to(senderId.toString()).emit("newMessage", aiMessage);
+            const senderSocketId = userSocketMap[senderId.toString()];
+            if (senderSocketId && senderSocketId !== senderId.toString()) {
+              io.to(senderSocketId).emit("newMessage", aiMessage);
+            }
           }
         } catch (aiErr) {
           console.error("Async SpaceAI response error:", aiErr);
@@ -169,9 +163,8 @@ export const sendMessage = async (req, res) => {
             text: "SpaceAI is temporarily unavailable. Please try again.",
             seen: true,
           });
-          const senderSocketId = userSocketMap[senderId.toString()];
-          if (senderSocketId) {
-            io.to(senderSocketId).emit("newMessage", fallbackMsg);
+          if (io) {
+            io.to(senderId.toString()).emit("newMessage", fallbackMsg);
           }
         }
       })();
@@ -179,10 +172,12 @@ export const sendMessage = async (req, res) => {
       return;
     }
 
-    // Normal user-to-user messaging
-    const receiverSocketId = userSocketMap[receiverId];
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", newMessage);
+    if (io) {
+      io.to(receiverId.toString()).emit("newMessage", newMessage);
+      const receiverSocketId = userSocketMap[receiverId];
+      if (receiverSocketId && receiverSocketId !== receiverId.toString()) {
+        io.to(receiverSocketId).emit("newMessage", newMessage);
+      }
     }
 
     return res.json({ success: true, newMessage });

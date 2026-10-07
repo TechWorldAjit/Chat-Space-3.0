@@ -25,13 +25,11 @@ const RightSidebar = () => {
 
   const isGroup = selectedUser?.isGroup;
 
-  // Check if current user is admin of selected group
   const isAdmin =
     isGroup &&
     (selectedUser.admin === authUser?._id ||
       selectedUser.admin?._id === authUser?._id);
 
-  // Format file size
   const formatFileSize = (bytes) => {
     if (!bytes || isNaN(bytes)) return "";
     if (bytes < 1024) return `${bytes} B`;
@@ -39,7 +37,6 @@ const RightSidebar = () => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // Get all images and files from messages
   useEffect(() => {
     setMsgImages(
       messages
@@ -51,7 +48,6 @@ const RightSidebar = () => {
     );
   }, [messages]);
 
-  // Handle adding new members
   const handleAddMembersSubmit = async (e) => {
     e.preventDefault();
     if (selectedNewMemberIds.length === 0) {
@@ -66,7 +62,6 @@ const RightSidebar = () => {
     }
   };
 
-  // Toggle member selection in add member modal
   const toggleNewMemberSelection = (userId) => {
     setSelectedNewMemberIds((prev) =>
       prev.includes(userId)
@@ -75,7 +70,6 @@ const RightSidebar = () => {
     );
   };
 
-  // Candidate members not currently in group
   const existingMemberIds = (selectedUser?.members || []).map((m) =>
     m._id ? m._id.toString() : m.toString()
   );
@@ -90,7 +84,6 @@ const RightSidebar = () => {
           selectedUser ? "max-md:hidden" : ""
         }`}
       >
-        {/* Profile Info Header */}
         <div className="pt-10 flex flex-col items-center gap-2 text-xs font-light px-5 text-center">
           {isGroup ? (
             selectedUser.groupPic ? (
@@ -129,7 +122,6 @@ const RightSidebar = () => {
               : selectedUser.bio || "Hey there! I am using Quick Chat."}
           </p>
 
-          {/* AI Summary Action inside Right Sidebar for Groups */}
           {isGroup && (
             <button
               onClick={() =>
@@ -145,7 +137,6 @@ const RightSidebar = () => {
 
         <hr className="border-[#ffffff30] my-4 mx-4" />
 
-        {/* GROUP MEMBERS SECTION */}
         {isGroup && (
           <div className="px-5 text-xs mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -203,7 +194,6 @@ const RightSidebar = () => {
                         </span>
                       )}
 
-                      {/* Admin controls: Remove Member */}
                       {isAdmin && memberId !== authUser?._id && (
                         <button
                           onClick={() =>
@@ -221,7 +211,6 @@ const RightSidebar = () => {
               })}
             </div>
 
-            {/* Leave / Delete Group Buttons */}
             <div className="mt-4 flex flex-col gap-2">
               <button
                 onClick={() =>
@@ -254,9 +243,7 @@ const RightSidebar = () => {
           </div>
         )}
 
-        {/* Media & Shared Files Section */}
         <div className="px-5 text-xs">
-          {/* Tab buttons: Media vs Docs & Folders */}
           <div className="flex items-center gap-2 mb-3 bg-black/20 p-1 rounded-lg border border-white/10">
             <button
               type="button"
@@ -305,7 +292,6 @@ const RightSidebar = () => {
               </p>
             )
           ) : (
-            /* Docs & Folders List */
             msgFiles.length > 0 ? (
               <div className="max-h-[180px] overflow-y-auto flex flex-col gap-2 pr-1">
                 {msgFiles.map((fileMsg, index) => (
@@ -354,7 +340,6 @@ const RightSidebar = () => {
           )}
         </div>
 
-        {/* Logout Button */}
         <div className="px-5 mt-6">
           <button
             onClick={logout}
@@ -364,7 +349,6 @@ const RightSidebar = () => {
           </button>
         </div>
 
-        {/* ================= MODAL: ADD MEMBERS ================= */}
         {isAddMemberModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
             <div className="bg-[#282142] border border-gray-600 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl text-white flex flex-col max-h-[80vh]">

@@ -5,22 +5,18 @@ import cloudinary from "../lib/cloudinary.js";
 import { saveUpload } from "../lib/uploadHelper.js";
 import { io, userSocketMap } from "../lib/socket.js";
 
-// Helper: broadcast event to all online group members
 const emitToGroupMembers = (memberIds, eventName, data) => {
-  if (!memberIds || !Array.isArray(memberIds)) return;
+  if (!io || !memberIds || !Array.isArray(memberIds)) return;
   memberIds.forEach((member) => {
     const memberIdStr = member._id ? member._id.toString() : member.toString();
+    io.to(memberIdStr).emit(eventName, data);
     const socketId = userSocketMap[memberIdStr];
-    if (socketId) {
+    if (socketId && socketId !== memberIdStr) {
       io.to(socketId).emit(eventName, data);
     }
   });
 };
 
-/**
- * Create a new group
- * POST /api/groups
- */
 export const createGroup = async (req, res) => {
   try {
     const { name, description = "", groupPic = "", members = [] } = req.body;
@@ -30,7 +26,6 @@ export const createGroup = async (req, res) => {
       return res.json({ success: false, message: "Group name is required" });
     }
 
-    // Ensure creator is in the members list
     const memberSet = new Set(members.map((id) => id.toString()));
     memberSet.add(adminId.toString());
     const memberArray = Array.from(memberSet);
@@ -57,7 +52,6 @@ export const createGroup = async (req, res) => {
       .populate("admin", "fullName email profilePic bio isAI")
       .populate("members", "fullName email profilePic bio isAI");
 
-    // Emit event to all online members
     emitToGroupMembers(populatedGroup.members, "newGroupCreated", populatedGroup);
 
     return res.json({
@@ -71,10 +65,6 @@ export const createGroup = async (req, res) => {
   }
 };
 
-/**
- * Get all groups for current user
- * GET /api/groups
- */
 export const getGroups = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -84,7 +74,6 @@ export const getGroups = async (req, res) => {
       .populate("members", "fullName email profilePic bio isAI")
       .sort({ updatedAt: -1 });
 
-    // Calculate unseen group messages in parallel
     const unseenPromises = groups.map(async (group) => {
       const count = await Message.countDocuments({
         groupId: group._id,
@@ -110,10 +99,6 @@ export const getGroups = async (req, res) => {
   }
 };
 
-/**
- * Get group by ID
- * GET /api/groups/:groupId
- */
 export const getGroupById = async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -144,10 +129,6 @@ export const getGroupById = async (req, res) => {
   }
 };
 
-/**
- * Get all messages for a group
- * GET /api/groups/:groupId/messages
- */
 export const getGroupMessages = async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -172,7 +153,6 @@ export const getGroupMessages = async (req, res) => {
       .populate("senderId", "fullName email profilePic bio isAI")
       .sort({ createdAt: 1 });
 
-    // Mark messages as seen by adding current user to seenBy
     await Message.updateMany(
       { groupId, seenBy: { $ne: userId } },
       { $addToSet: { seenBy: userId } }
@@ -185,10 +165,6 @@ export const getGroupMessages = async (req, res) => {
   }
 };
 
-/**
- * Send a message to a group
- * POST /api/groups/:groupId/messages
- */
 export const sendGroupMessage = async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -250,10 +226,8 @@ export const sendGroupMessage = async (req, res) => {
       "fullName email profilePic bio isAI"
     );
 
-    // Update group updatedAt timestamp
     await Group.findByIdAndUpdate(groupId, { updatedAt: new Date() });
 
-    // Broadcast message to all group members (except or including sender)
     emitToGroupMembers(group.members, "newGroupMessage", populatedMessage);
 
     return res.json({ success: true, newMessage: populatedMessage });
@@ -263,10 +237,6 @@ export const sendGroupMessage = async (req, res) => {
   }
 };
 
-/**
- * Update group details (name, description, groupPic)
- * PUT /api/groups/:groupId
- */
 export const updateGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -317,14 +287,10 @@ export const updateGroup = async (req, res) => {
   }
 };
 
-/**
- * Add members to a group
- * POST /api/groups/:groupId/members
- */
 export const addGroupMembers = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { memberIds } = req.body; // Array of user IDs
+    const { memberIds } = req.body;
     const userId = req.user._id;
 
     if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
@@ -364,10 +330,6 @@ export const addGroupMembers = async (req, res) => {
   }
 };
 
-/**
- * Remove a member or leave group
- * DELETE /api/groups/:groupId/members/:memberId
- */
 export const removeGroupMember = async (req, res) => {
   try {
     const { groupId, memberId } = req.params;
@@ -388,14 +350,12 @@ export const removeGroupMember = async (req, res) => {
       });
     }
 
-    // If admin is leaving
     let newAdmin = group.admin;
     const remainingMembers = group.members.filter(
       (m) => m.toString() !== memberId.toString()
     );
 
     if (remainingMembers.length === 0) {
-      // Group is now empty, delete it
       await Group.findByIdAndDelete(groupId);
       await Message.deleteMany({ groupId });
       emitToGroupMembers([memberId], "groupDeleted", { groupId });
@@ -420,7 +380,6 @@ export const removeGroupMember = async (req, res) => {
       .populate("admin", "fullName email profilePic bio isAI")
       .populate("members", "fullName email profilePic bio isAI");
 
-    // Notify remaining members and removed member
     emitToGroupMembers(
       [...remainingMembers, memberId],
       "groupUpdated",
@@ -438,10 +397,6 @@ export const removeGroupMember = async (req, res) => {
   }
 };
 
-/**
- * Delete a group
- * DELETE /api/groups/:groupId
- */
 export const deleteGroup = async (req, res) => {
   try {
     const { groupId } = req.params;

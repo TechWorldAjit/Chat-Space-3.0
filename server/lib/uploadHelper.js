@@ -11,17 +11,9 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-/**
- * Upload a file/image to Cloudinary with fallback to local disk storage
- * @param {string} base64OrUrl
- * @param {string} fileName
- * @param {object} req - Express request object
- * @returns {Promise<string>} Uploaded URL
- */
 export const saveUpload = async (base64OrUrl, fileName = "file", req = null) => {
   if (!base64OrUrl) return "";
 
-  // If already a remote URL, return it
   if (
     typeof base64OrUrl === "string" &&
     (base64OrUrl.startsWith("http://") || base64OrUrl.startsWith("https://"))
@@ -29,7 +21,6 @@ export const saveUpload = async (base64OrUrl, fileName = "file", req = null) => 
     return base64OrUrl;
   }
 
-  // 1. Try uploading to Cloudinary
   try {
     const uploadResponse = await cloudinary.uploader.upload(base64OrUrl, {
       resource_type: "auto",
@@ -39,12 +30,12 @@ export const saveUpload = async (base64OrUrl, fileName = "file", req = null) => 
       return uploadResponse.secure_url;
     }
   } catch (cloudErr) {
-    console.warn(
-      `Cloudinary upload failed (${cloudErr.message}). Storing file locally on server.`
-    );
+    console.error("Cloudinary upload failed:", cloudErr.message);
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      throw new Error("Cloud upload failed: " + cloudErr.message);
+    }
   }
 
-  // 2. Fallback: Save file locally to server/uploads/
   try {
     const matches = base64OrUrl.match(/^data:([^;]+);base64,(.+)$/);
     const base64Data = matches ? matches[2] : base64OrUrl;
@@ -58,11 +49,11 @@ export const saveUpload = async (base64OrUrl, fileName = "file", req = null) => 
     fs.writeFileSync(filePath, Buffer.from(base64Data, "base64"));
 
     if (req) {
-      const host = req.get("host") || "localhost:5005";
+      const host = req.get("host") || "localhost:5001";
       const protocol = req.protocol || "http";
       return `${protocol}://${host}/uploads/${uniqueName}`;
     }
-    return `http://localhost:5005/uploads/${uniqueName}`;
+    return `http://localhost:5001/uploads/${uniqueName}`;
   } catch (fsErr) {
     console.error("Local file storage fallback failed:", fsErr);
     throw new Error("Unable to save file: " + fsErr.message);

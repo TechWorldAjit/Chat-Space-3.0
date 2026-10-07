@@ -65,7 +65,6 @@ async function runEnhancementsIntegrationTests() {
     await connectDB();
     await getOrCreateSpaceAIUser();
 
-    // 1. Sign up 3 test users
     console.log("\n--- STEP 1: Setting up 3 Test Users ---");
     const ts = Date.now();
     const resA = await postJson(`${BASE_URL}/api/auth/signup`, {
@@ -97,7 +96,6 @@ async function runEnhancementsIntegrationTests() {
 
     console.log("✓ Users created: User A (Admin), User B (Dev), User C (Designer)");
 
-    // 2. Create a Group Chat
     console.log("\n--- STEP 2: Group Creation ---");
     const createGroupRes = await postJson(
       `${BASE_URL}/api/groups`,
@@ -119,7 +117,6 @@ async function runEnhancementsIntegrationTests() {
       throw new Error(`Expected 3 members, got ${testGroup.members.length}`);
     }
 
-    // 3. Verify Group Retrieval for all members
     console.log("\n--- STEP 3: Group Retrieval for Members ---");
     const groupsResB = await getJson(`${BASE_URL}/api/groups`, tokenB);
     if (!groupsResB.success || groupsResB.groups.length === 0) {
@@ -127,7 +124,6 @@ async function runEnhancementsIntegrationTests() {
     }
     console.log(`✓ User B sees group: ${groupsResB.groups[0].name}`);
 
-    // 4. Send Group Messages
     console.log("\n--- STEP 4: Send Group Messages ---");
     const msg1 = await postJson(
       `${BASE_URL}/api/groups/${testGroup._id}/messages`,
@@ -150,7 +146,6 @@ async function runEnhancementsIntegrationTests() {
     );
     console.log(`✓ User C sent: "${msg3.newMessage.text}" (sender: ${msg3.newMessage.senderId.fullName})`);
 
-    // 5. Get Group Messages
     console.log("\n--- STEP 5: Retrieve Group Messages ---");
     const getMsgsRes = await getJson(
       `${BASE_URL}/api/groups/${testGroup._id}/messages`,
@@ -161,9 +156,7 @@ async function runEnhancementsIntegrationTests() {
       throw new Error(`Expected 3 messages, got ${getMsgsRes.messages.length}`);
     }
 
-    // 6. Admin Permissions Check
     console.log("\n--- STEP 6: Admin Permissions Enforcement ---");
-    // Non-admin (User B) tries to update group
     const unauthorizedUpdate = await putJson(
       `${BASE_URL}/api/groups/${testGroup._id}`,
       { name: "Hacked Name" },
@@ -174,7 +167,6 @@ async function runEnhancementsIntegrationTests() {
     }
     console.log("✓ PASS: Non-admin update correctly blocked.");
 
-    // Admin (User A) updates group description
     const adminUpdate = await putJson(
       `${BASE_URL}/api/groups/${testGroup._id}`,
       { description: "Official Titan Project Workspace" },
@@ -185,7 +177,6 @@ async function runEnhancementsIntegrationTests() {
     }
     console.log("✓ PASS: Admin updated group info successfully.");
 
-    // 7. AI Group Summary Generation
     console.log("\n--- STEP 7: Gemini AI Group Summary ---");
     const summaryRes = await postJson(
       `${BASE_URL}/api/ai/group-summary/${testGroup._id}`,
@@ -200,9 +191,7 @@ async function runEnhancementsIntegrationTests() {
       console.log("Note on AI summary:", summaryRes.message);
     }
 
-    // 8. Private Chat Folders
     console.log("\n--- STEP 8: Private Chat Folders CRUD & Isolation ---");
-    // User A creates "Work" folder
     const createFolderRes = await postJson(
       `${BASE_URL}/api/folders`,
       { name: "Work" },
@@ -214,7 +203,6 @@ async function runEnhancementsIntegrationTests() {
     testFolder = createFolderRes.folder;
     console.log(`✓ User A created folder: "${testFolder.name}" (ID: ${testFolder._id})`);
 
-    // User A adds 1-to-1 chat with User B and Group chat to folder
     const addChat1 = await postJson(
       `${BASE_URL}/api/folders/${testFolder._id}/add-chat`,
       { chatType: "direct", chatId: userB._id },
@@ -227,7 +215,6 @@ async function runEnhancementsIntegrationTests() {
     );
     console.log(`✓ Chats in folder: ${addChat2.folder.chats.length}`);
 
-    // User B checks their folders (Must be 0, complete privacy isolation)
     const userBFolders = await getJson(`${BASE_URL}/api/folders`, tokenB);
     console.log(`User B sees ${userBFolders.folders.length} folders.`);
     if (userBFolders.folders.length !== 0) {
@@ -235,7 +222,6 @@ async function runEnhancementsIntegrationTests() {
     }
     console.log("✓ PASS: Folders are 100% private to owner.");
 
-    // User A renames folder
     const renameRes = await putJson(
       `${BASE_URL}/api/folders/${testFolder._id}`,
       { name: "Titan Work" },
@@ -243,14 +229,12 @@ async function runEnhancementsIntegrationTests() {
     );
     console.log(`✓ Folder renamed to: "${renameRes.folder.name}"`);
 
-    // User A deletes folder
     const deleteFolderRes = await deleteJson(
       `${BASE_URL}/api/folders/${testFolder._id}`,
       tokenA
     );
     console.log("✓ Folder deleted response:", deleteFolderRes.message);
 
-    // Verify chats still exist after folder deletion
     const checkGroupAfter = await getJson(
       `${BASE_URL}/api/groups/${testGroup._id}`,
       tokenA
@@ -260,7 +244,6 @@ async function runEnhancementsIntegrationTests() {
     }
     console.log("✓ PASS: Original chats remain intact after folder deletion.");
 
-    // 9. Existing 1-to-1 chat regression test
     console.log("\n--- STEP 9: 1-to-1 Chat Regression Test ---");
     const send1to1 = await postJson(
       `${BASE_URL}/api/messages/send/${userB._id}`,
@@ -279,7 +262,6 @@ async function runEnhancementsIntegrationTests() {
     console.error("TEST FAILED:", err.message);
     process.exitCode = 1;
   } finally {
-    // Cleanup test data
     console.log("Cleaning up test data...");
     if (userA) await User.findByIdAndDelete(userA._id);
     if (userB) await User.findByIdAndDelete(userB._id);

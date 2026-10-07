@@ -1,10 +1,13 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
+dotenv.config({ path: "./server/.env" });
+process.env.JWT_SECRET = process.env.JWT_SECRET || "mySuperSecretKey123";
 import http from "http";
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { Server } from "socket.io";
+import { initSocket } from "./lib/socket.js";
 
 import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
@@ -71,17 +74,15 @@ async function runTestSuite() {
   console.log("==================================================");
 
   try {
-    // 1. Start MongoMemoryServer
     console.log("Starting in-memory MongoDB...");
     mongod = await MongoMemoryServer.create();
     const uri = mongod.getUri();
     await mongoose.connect(uri);
     console.log("✓ Connected to In-Memory MongoDB.");
 
-    // 2. Start Test Express App
     const app = express();
     server = http.createServer(app);
-    const io = new Server(server, { cors: { origin: "*" } });
+    initSocket(server);
 
     app.use(express.json({ limit: "4mb" }));
     app.use(cors());
@@ -101,7 +102,6 @@ async function runTestSuite() {
 
     await getOrCreateSpaceAIUser();
 
-    // 3. User Authentication
     console.log("\n--- TEST 1: User Signup & Authentication ---");
     const resA = await postJson(`${BASE_URL}/api/auth/signup`, {
       fullName: "Ajit Admin",
@@ -135,7 +135,6 @@ async function runTestSuite() {
 
     console.log("✓ 3 Users signed up successfully.");
 
-    // 4. One-to-One Chat Regression
     console.log("\n--- TEST 2: Existing 1-to-1 Chat Regression ---");
     const sendDirectRes = await postJson(
       `${BASE_URL}/api/messages/send/${userB._id}`,
@@ -154,7 +153,6 @@ async function runTestSuite() {
     }
     console.log("✓ 1-to-1 message retrieved by User B.");
 
-    // 5. Group Creation
     console.log("\n--- TEST 3: Group Creation ---");
     const createGroupRes = await postJson(
       `${BASE_URL}/api/groups`,
@@ -180,7 +178,6 @@ async function runTestSuite() {
       throw new Error("Group admin is not the creator!");
     }
 
-    // 6. Group Retrieval for all members
     console.log("\n--- TEST 4: Group Retrieval for Members ---");
     const groupsUserB = await getJson(`${BASE_URL}/api/groups`, tokenB);
     if (!groupsUserB.success || groupsUserB.groups.length !== 1) {
@@ -188,7 +185,6 @@ async function runTestSuite() {
     }
     console.log(`✓ User B sees group: ${groupsUserB.groups[0].name}`);
 
-    // 7. Group Messaging & Multi-member communication
     console.log("\n--- TEST 5: Realtime Group Messaging ---");
     const gMsg1 = await postJson(
       `${BASE_URL}/api/groups/${group._id}/messages`,
@@ -214,7 +210,6 @@ async function runTestSuite() {
     if (!gMsg3.success) throw new Error("Group message 3 failed");
     console.log(`✓ User C posted: "${gMsg3.newMessage.text}"`);
 
-    // Retrieve group messages
     const getGMsgs = await getJson(
       `${BASE_URL}/api/groups/${group._id}/messages`,
       tokenB
@@ -224,9 +219,7 @@ async function runTestSuite() {
     }
     console.log("✓ Retrieved all 3 messages with populated sender info.");
 
-    // 8. Group Admin Permissions
     console.log("\n--- TEST 6: Group Admin Permissions ---");
-    // Non-admin tries to update group
     const nonAdminUpdate = await putJson(
       `${BASE_URL}/api/groups/${group._id}`,
       { name: "Unauthorized Change" },
@@ -237,7 +230,6 @@ async function runTestSuite() {
     }
     console.log("✓ PASS: Non-admin update blocked.");
 
-    // Admin updates group info
     const adminUpdate = await putJson(
       `${BASE_URL}/api/groups/${group._id}`,
       { name: "Dev Team Alpha (Updated)", description: "Updated description" },
@@ -248,7 +240,6 @@ async function runTestSuite() {
     }
     console.log("✓ PASS: Admin updated group info successfully.");
 
-    // 9. Gemini AI Group Summary Endpoint
     console.log("\n--- TEST 7: Gemini AI Group Summary ---");
     const summaryRes = await postJson(
       `${BASE_URL}/api/ai/group-summary/${group._id}`,
@@ -264,9 +255,7 @@ async function runTestSuite() {
     }
     console.log("✓ PASS: AI Group Summary endpoint processed cleanly.");
 
-    // 10. Private Chat Folders
     console.log("\n--- TEST 8: Private Chat Folders & Privacy Isolation ---");
-    // User A creates "Work" folder
     const createF1 = await postJson(
       `${BASE_URL}/api/folders`,
       { name: "Work" },
@@ -276,7 +265,6 @@ async function runTestSuite() {
     const folderWork = createF1.folder;
     console.log(`✓ User A created folder: "${folderWork.name}"`);
 
-    // User A adds 1-to-1 chat with User B and Group chat to "Work" folder
     await postJson(
       `${BASE_URL}/api/folders/${folderWork._id}/add-chat`,
       { chatType: "direct", chatId: userB._id },
@@ -292,7 +280,6 @@ async function runTestSuite() {
     }
     console.log("✓ User A added 1-to-1 and Group chats to 'Work' folder.");
 
-    // User B checks folders (MUST BE 0)
     const userBFolders = await getJson(`${BASE_URL}/api/folders`, tokenB);
     console.log(`User B has ${userBFolders.folders.length} folders.`);
     if (userBFolders.folders.length !== 0) {
@@ -300,7 +287,6 @@ async function runTestSuite() {
     }
     console.log("✓ PASS: Folders are completely private to the owner.");
 
-    // User A renames folder
     const renameF = await putJson(
       `${BASE_URL}/api/folders/${folderWork._id}`,
       { name: "Work Projects" },
@@ -311,11 +297,9 @@ async function runTestSuite() {
     }
     console.log(`✓ Folder renamed to: "${renameF.folder.name}"`);
 
-    // User A deletes folder
     await deleteJson(`${BASE_URL}/api/folders/${folderWork._id}`, tokenA);
     console.log("✓ Folder deleted.");
 
-    // Verify chats remain untouched
     const checkGroupStillExists = await getJson(
       `${BASE_URL}/api/groups/${group._id}`,
       tokenA

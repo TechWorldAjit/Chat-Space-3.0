@@ -12,24 +12,23 @@ import { getOrCreateSpaceAIUser } from "./lib/spaceai.js";
 import { initSocket, io, userSocketMap } from "./lib/socket.js";
 export { io, userSocketMap };
 
-// Create Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
 
-// Initialize socket.io server
 initSocket(server);
 
-// Middleware setup
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true,
+}));
 app.use("/uploads", express.static("uploads"));
 
-// Routes setup
 app.get("/", (req, res) => {
   res.send("Welcome to Quick Chat API");
 });
-app.use("/api/status", (req, res) => res.send("Server is live"));
+app.use("/api/status", (req, res) => res.json({ success: true, message: "Server is live" }));
 
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
@@ -37,13 +36,12 @@ app.use("/api/ai", aiRouter);
 app.use("/api/groups", groupRouter);
 app.use("/api/folders", folderRouter);
 
-// Initialize Database and System User
 const initializeDatabase = async () => {
   try {
     await connectDB();
     await getOrCreateSpaceAIUser();
   } catch (error) {
-    console.warn("Database initialization notice:", error.message);
+    console.error("Database initialization error:", error.message);
   }
 };
 
@@ -75,5 +73,4 @@ if (!process.env.VERCEL) {
   startServer(PORT);
 }
 
-// Export server for Vercel
 export default server;

@@ -46,7 +46,6 @@ const ChatContainer = () => {
       selectedUser?.email === "spaceai@system.local" ||
       selectedUser?.fullName === "SpaceAI");
 
-  // Helper to format **bold** text inside chat messages
   const renderFormattedText = (text) => {
     if (!text) return null;
     const parts = text.split(/(\*\*.*?\*\*)/g);
@@ -62,7 +61,6 @@ const ChatContainer = () => {
     });
   };
 
-  // Format file size nicely
   const formatFileSize = (bytes) => {
     if (!bytes || isNaN(bytes)) return "";
     if (bytes < 1024) return `${bytes} B`;
@@ -70,12 +68,10 @@ const ChatContainer = () => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // Get file extension
   const getFileExt = (name = "") => {
     return name.includes(".") ? name.split(".").pop().toLowerCase() : "file";
   };
 
-  // Direct file download handler with fallback
   const handleDownload = async (fileUrl, fileName) => {
     if (!fileUrl) return;
     const toastId = toast.loading(`Downloading ${fileName || "file"}...`);
@@ -105,7 +101,6 @@ const ChatContainer = () => {
     }
   };
 
-  // Render colored file type badge matching WhatsApp (PDF in red, Excel in green, etc.)
   const renderFileBadge = (fileName = "", fileType = "") => {
     const ext = getFileExt(fileName).toUpperCase();
     if (fileType === "folder" || ext === "ZIP" || ext === "RAR" || ext === "TAR" || ext === "7Z") {
@@ -150,7 +145,6 @@ const ChatContainer = () => {
     );
   };
 
-  // Icon badge for different file types
   const getFileIconBadge = (name = "") => {
     const ext = getFileExt(name);
     if (ext === "pdf") return "📕";
@@ -164,7 +158,6 @@ const ChatContainer = () => {
     return "📄";
   };
 
-  // Handle selecting an image
   const handleImageSelected = (e) => {
     const file = e.target.files[0];
     if (!file || !file.type.startsWith("image/")) {
@@ -187,7 +180,6 @@ const ChatContainer = () => {
     e.target.value = "";
   };
 
-  // Handle selecting a document/file
   const handleDocSelected = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -208,7 +200,6 @@ const ChatContainer = () => {
     e.target.value = "";
   };
 
-  // Handle selecting an entire folder
   const handleFolderSelected = async (e) => {
     const files = Array.from(e.target.files);
     if (!files || files.length === 0) return;
@@ -254,7 +245,6 @@ const ChatContainer = () => {
     e.target.value = "";
   };
 
-  // Handle sending a message (text, document, image, or folder)
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
     if (isUploadingFile) return;
@@ -314,10 +304,10 @@ const ChatContainer = () => {
 
   return selectedUser ? (
     <div className="h-full overflow-hidden flex flex-col relative backdrop-blur-lg">
-      {/* --------- header --------- */}
+      
       <div className="flex items-center gap-3 py-3 mx-4 border-b border-stone-500/60 justify-between">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          {/* Avatar */}
+          
           {isGroup ? (
             selectedUser.groupPic ? (
               <img
@@ -338,7 +328,7 @@ const ChatContainer = () => {
             />
           )}
 
-          {/* Name & Subtitle */}
+          
           <div className="flex flex-col min-w-0">
             <p className="text-base font-medium text-white flex items-center gap-2 truncate">
               {isGroup ? selectedUser.name : selectedUser.fullName}
@@ -359,9 +349,9 @@ const ChatContainer = () => {
           </div>
         </div>
 
-        {/* Header Action Buttons */}
+        
         <div className="flex items-center gap-2">
-          {/* Direct 1-to-1 Voice & Video Call Buttons */}
+          
           {!isGroup && !isSelectedUserAI && (
             <>
               <button
@@ -412,7 +402,7 @@ const ChatContainer = () => {
             </>
           )}
 
-          {/* AI Summary Button (Group Chat) */}
+          
           {isGroup && (
             <button
               onClick={() => summarizeGroup(selectedUser._id, selectedUser.name)}
@@ -438,7 +428,7 @@ const ChatContainer = () => {
         </div>
       </div>
 
-      {/* --------- chat area --------- */}
+      
       <div className="flex-1 overflow-y-scroll p-4 pb-4 flex flex-col gap-3">
         {messages.map((msg, index) => {
           const isMyMessage =
@@ -459,14 +449,14 @@ const ChatContainer = () => {
               }`}
             >
               <div className="flex flex-col max-w-[280px] md:max-w-[420px]">
-                {/* Sender Name for incoming group messages */}
+                
                 {isGroup && !isMyMessage && (
                   <span className="text-[11px] font-semibold text-violet-300 mb-1 ml-1">
                     {senderName}
                   </span>
                 )}
 
-                {/* WhatsApp-style Document or Folder Card matching reference */}
+                
                 {(msg.fileType === "folder" ||
                   msg.fileType === "document" ||
                   msg.fileType === "pdf" ||
@@ -497,7 +487,7 @@ const ChatContainer = () => {
                         </div>
                       </div>
 
-                      {/* Download Button */}
+                      
                       <button
                         type="button"
                         onClick={(e) => {
@@ -530,7 +520,7 @@ const ChatContainer = () => {
                     )}
                   </div>
                 ) : (msg.image || (msg.fileUrl && msg.fileType === "image")) ? (
-                  /* Image Attachment Bubble */
+                  
                   <div className="flex flex-col gap-1 max-w-[240px]">
                     <img
                       src={msg.fileUrl || msg.image}
@@ -551,7 +541,7 @@ const ChatContainer = () => {
                     )}
                   </div>
                 ) : msg.text ? (
-                  /* Text Only Bubble */
+                  
                   <p
                     className={`p-2.5 md:text-sm font-light rounded-2xl whitespace-pre-wrap break-words text-white ${
                       isMyMessage
@@ -564,7 +554,7 @@ const ChatContainer = () => {
                 ) : null}
               </div>
 
-              {/* Avatar and Time */}
+              
               <div className="text-center text-xs flex flex-col items-center">
                 <img
                   src={senderPic}
@@ -579,7 +569,7 @@ const ChatContainer = () => {
           );
         })}
 
-        {/* SpaceAI Typing indicator */}
+        
         {isAiTyping && isSelectedUserAI && (
           <div className="flex items-end gap-2 justify-end flex-row-reverse my-2">
             <div className="p-3 rounded-2xl rounded-bl-none bg-violet-500/20 text-violet-200 flex items-center gap-2 border border-violet-500/30">
@@ -604,9 +594,9 @@ const ChatContainer = () => {
         <div ref={scrollEnd}></div>
       </div>
 
-      {/* --------- bottom input area --------- */}
+      
       <div className="p-3 bg-black/10 border-t border-stone-600/30 relative">
-        {/* Click outside backdrop to close attachment menu */}
+        
         {isAttachMenuOpen && (
           <div
             className="fixed inset-0 z-20"
@@ -614,14 +604,14 @@ const ChatContainer = () => {
           />
         )}
 
-        {/* WhatsApp-style Attachment Popup Menu */}
+        
         {isAttachMenuOpen && (
           <div
             className={`absolute ${
               stagedAttachment ? "bottom-24" : "bottom-18"
             } left-4 bg-[#1e1738]/95 border border-violet-500/40 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 z-30 min-w-[200px] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-150`}
           >
-            {/* Document option */}
+            
             <button
               type="button"
               onClick={() => {
@@ -639,7 +629,7 @@ const ChatContainer = () => {
               </div>
             </button>
 
-            {/* Photos & Media option */}
+            
             <button
               type="button"
               onClick={() => {
@@ -657,7 +647,7 @@ const ChatContainer = () => {
               </div>
             </button>
 
-            {/* Folder option */}
+            
             <button
               type="button"
               onClick={() => {
@@ -677,7 +667,7 @@ const ChatContainer = () => {
           </div>
         )}
 
-        {/* Uploading Status Banner */}
+        
         {isUploadingFile && (
           <div className="mb-2 px-3 py-1.5 rounded-lg bg-violet-600/30 border border-violet-400/40 flex items-center gap-2 text-xs text-violet-200 animate-pulse">
             <div className="w-3.5 h-3.5 border-2 border-violet-300 border-t-transparent rounded-full animate-spin"></div>
@@ -685,7 +675,7 @@ const ChatContainer = () => {
           </div>
         )}
 
-        {/* Staged Attachment Preview Bar */}
+        
         {stagedAttachment && (
           <div className="mb-2 p-2 rounded-xl bg-[#282142] border border-violet-500/40 flex items-center justify-between gap-3 shadow-lg">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -727,7 +717,7 @@ const ChatContainer = () => {
           </div>
         )}
 
-        {/* Hidden inputs for attachments */}
+        
         <input
           ref={imageInputRef}
           onChange={handleImageSelected}
@@ -754,7 +744,7 @@ const ChatContainer = () => {
 
         <div className="flex items-center gap-3">
           <div className="flex-1 flex items-center bg-gray-100/10 px-3 md:px-4 rounded-full border border-gray-600/40">
-            {/* WhatsApp-style Attachment (Paperclip) button */}
+            
             <button
               type="button"
               onClick={() => setIsAttachMenuOpen((prev) => !prev)}
@@ -781,7 +771,7 @@ const ChatContainer = () => {
               className="flex-1 text-sm py-3 border-none rounded-lg outline-none text-white placeholder-gray-400"
             />
 
-            {/* Quick Gallery button */}
+            
             <button
               type="button"
               onClick={() => imageInputRef.current?.click()}
@@ -812,7 +802,7 @@ const ChatContainer = () => {
         </div>
       </div>
 
-      {/* AI Summary Modal */}
+      
       <AISummaryModal
         isOpen={isSummaryModalOpen}
         onClose={() => setIsSummaryModalOpen(false)}

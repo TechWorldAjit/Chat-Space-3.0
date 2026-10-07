@@ -1,14 +1,18 @@
 import { Server } from "socket.io";
 
-export const userSocketMap = {}; // { userId: socketId }
-export const activeCalls = new Map(); // userId -> { peerId, callType, startedAt }
-export const pendingCalls = new Map(); // callerId -> { to, callType, startedAt }
+export const userSocketMap = {};
+export const activeCalls = new Map();
+export const pendingCalls = new Map();
 
 export let io = null;
 
 export const initSocket = (httpServer) => {
   io = new Server(httpServer, {
-    cors: { origin: "*" },
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
   });
 
   io.on("connection", (socket) => {
@@ -16,16 +20,12 @@ export const initSocket = (httpServer) => {
     if (userId) {
       userSocketMap[userId] = socket.id;
       socket.userId = userId;
+      socket.join(userId);
     }
     console.log("User Connected:", userId, "Socket ID:", socket.id);
 
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-    // ==========================================================
-    // WEBRTC VOICE & VIDEO CALL SIGNALING
-    // ==========================================================
-
-    // 1. Caller initiates call
     socket.on("callUser", ({ userToCall, signalData, callType = "voice", callerInfo }) => {
       const callerId = socket.userId || userId;
       if (!callerId) return;
@@ -35,9 +35,8 @@ export const initSocket = (httpServer) => {
         return;
       }
 
-      // Check if recipient is online
-      const recipientSocketId = userSocketMap[userToCall];
-      if (!recipientSocketId) {
+      const isRecipientOnline = Boolean(userSocketMap[userToCall]);
+      if (!isRecipientOnline) {
         socket.emit("callUnavailable", {
           to: userToCall,
           reason: "User is currently offline",
@@ -45,7 +44,6 @@ export const initSocket = (httpServer) => {
         return;
       }
 
-      // Check if recipient is currently in a call
       if (activeCalls.has(userToCall)) {
         socket.emit("callBusy", {
           to: userToCall,
@@ -54,7 +52,6 @@ export const initSocket = (httpServer) => {
         return;
       }
 
-      // Check if recipient is already receiving another call
       for (const [, pending] of pendingCalls.entries()) {
         if (pending.to === userToCall) {
           socket.emit("callBusy", {
@@ -65,17 +62,16 @@ export const initSocket = (httpServer) => {
         }
       }
 
-      // Record pending call
       pendingCalls.set(callerId, {
         to: userToCall,
         callType,
         startedAt: Date.now(),
+        socketId: socket.id,
       });
 
       console.log(`[Call] ${callerId} calling ${userToCall} (${callType})`);
 
-      // Forward incomingCall to recipient
-      io.to(recipientSocketId).emit("incomingCall", {
+      io.to(userToCall).emit("incomingCall", {
         from: callerId,
         callerInfo: callerInfo || { _id: callerId },
         signal: signalData,
@@ -83,32 +79,25 @@ export const initSocket = (httpServer) => {
       });
     });
 
-    // 2. Recipient answers call
     socket.on("answerCall", ({ to, signal }) => {
       const recipientId = socket.userId || userId;
       if (!recipientId || !to) return;
 
-      // Clear pending call
       pendingCalls.delete(to);
       pendingCalls.delete(recipientId);
 
-      // Register active call for both users
       const startedAt = Date.now();
-      activeCalls.set(recipientId, { peerId: to, startedAt });
-      activeCalls.set(to, { peerId: recipientId, startedAt });
+      activeCalls.set(recipientId, { peerId: to, startedAt, socketId: socket.id });
+      activeCalls.set(to, { peerId: recipientId, startedAt, socketId: userSocketMap[to] });
 
       console.log(`[Call] ${recipientId} answered call from ${to}`);
 
-      const callerSocketId = userSocketMap[to];
-      if (callerSocketId) {
-        io.to(callerSocketId).emit("callAccepted", {
-          signal,
-          from: recipientId,
-        });
-      }
+      io.to(to).emit("callAccepted", {
+        signal,
+        from: recipientId,
+      });
     });
 
-    // 3. Recipient rejects call
     socket.on("rejectCall", ({ to, reason = "Call declined" }) => {
       const recipientId = socket.userId || userId;
       if (to) {
@@ -120,16 +109,14 @@ export const initSocket = (httpServer) => {
 
       console.log(`[Call] ${recipientId} rejected call from ${to}`);
 
-      const callerSocketId = userSocketMap[to];
-      if (callerSocketId) {
-        io.to(callerSocketId).emit("callRejected", {
+      if (to) {
+        io.to(to).emit("callRejected", {
           from: recipientId,
           reason,
         });
       }
     });
 
-    // 4. Either party ends call
     socket.on("endCall", ({ to }) => {
       const myId = socket.userId || userId;
       if (myId) {
@@ -143,56 +130,42 @@ export const initSocket = (httpServer) => {
 
       console.log(`[Call] Call ended between ${myId} and ${to}`);
 
-      const otherSocketId = userSocketMap[to];
-      if (otherSocketId) {
-        io.to(otherSocketId).emit("callEnded", { from: myId });
+      if (to) {
+        io.to(to).emit("callEnded", { from: myId });
       }
     });
 
-    // 5. ICE Candidate relay
     socket.on("iceCandidate", ({ to, candidate }) => {
       const myId = socket.userId || userId;
       if (!to || !candidate) return;
 
-      const otherSocketId = userSocketMap[to];
-      if (otherSocketId) {
-        io.to(otherSocketId).emit("iceCandidate", {
-          from: myId,
-          candidate,
-        });
-      }
+      io.to(to).emit("iceCandidate", {
+        from: myId,
+        candidate,
+      });
     });
 
-    // 6. Media toggle sync (audio/video mute/camera state)
     socket.on("toggleMedia", ({ to, mediaType, enabled }) => {
       const myId = socket.userId || userId;
       if (!to) return;
 
-      const otherSocketId = userSocketMap[to];
-      if (otherSocketId) {
-        io.to(otherSocketId).emit("mediaToggled", {
-          from: myId,
-          mediaType,
-          enabled,
-        });
-      }
+      io.to(to).emit("mediaToggled", {
+        from: myId,
+        mediaType,
+        enabled,
+      });
     });
 
-    // ==========================================================
-    // DISCONNECT CLEANUP
-    // ==========================================================
     socket.on("disconnect", () => {
-      console.log("User Disconnected:", userId);
+      console.log("User Disconnected:", userId, "Socket ID:", socket.id);
 
-      // Clean up active calls
       if (userId && activeCalls.has(userId)) {
         const call = activeCalls.get(userId);
-        activeCalls.delete(userId);
-        if (call?.peerId) {
-          activeCalls.delete(call.peerId);
-          const peerSocketId = userSocketMap[call.peerId];
-          if (peerSocketId) {
-            io.to(peerSocketId).emit("callEnded", {
+        if (call?.socketId === socket.id || userSocketMap[userId] === socket.id) {
+          activeCalls.delete(userId);
+          if (call?.peerId) {
+            activeCalls.delete(call.peerId);
+            io.to(call.peerId).emit("callEnded", {
               from: userId,
               reason: "User disconnected",
             });
@@ -200,14 +173,12 @@ export const initSocket = (httpServer) => {
         }
       }
 
-      // Clean up pending calls initiated by this user
       if (userId && pendingCalls.has(userId)) {
         const pending = pendingCalls.get(userId);
-        pendingCalls.delete(userId);
-        if (pending?.to) {
-          const recipientSocket = userSocketMap[pending.to];
-          if (recipientSocket) {
-            io.to(recipientSocket).emit("callEnded", {
+        if (pending?.socketId === socket.id || userSocketMap[userId] === socket.id) {
+          pendingCalls.delete(userId);
+          if (pending?.to) {
+            io.to(pending.to).emit("callEnded", {
               from: userId,
               reason: "Caller disconnected",
             });
@@ -215,24 +186,22 @@ export const initSocket = (httpServer) => {
         }
       }
 
-      // Clean up pending calls received by this user
       if (userId) {
         for (const [callerId, pending] of pendingCalls.entries()) {
-          if (pending.to === userId) {
+          if (pending.to === userId && userSocketMap[userId] === socket.id) {
             pendingCalls.delete(callerId);
-            const callerSocket = userSocketMap[callerId];
-            if (callerSocket) {
-              io.to(callerSocket).emit("callEnded", {
-                from: userId,
-                reason: "User went offline",
-              });
-            }
+            io.to(callerId).emit("callEnded", {
+              from: userId,
+              reason: "User went offline",
+            });
           }
         }
       }
 
-      delete userSocketMap[userId];
-      io.emit("getOnlineUsers", Object.keys(userSocketMap));
+      if (userSocketMap[userId] === socket.id) {
+        delete userSocketMap[userId];
+        io.emit("getOnlineUsers", Object.keys(userSocketMap));
+      }
     });
   });
 

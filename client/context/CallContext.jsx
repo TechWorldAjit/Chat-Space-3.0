@@ -5,88 +5,52 @@ import toast from "react-hot-toast";
 
 export const CallContext = createContext();
 
-const ICE_SERVERS = {
-  iceServers: [
+const getIceServers = () => {
+  const servers = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
     { urls: "stun:stun3.l.google.com:19302" },
-  ],
+  ];
+
+  const turnUrl = import.meta.env.VITE_TURN_URL || import.meta.env.TURN_URL;
+  const turnUsername = import.meta.env.VITE_TURN_USERNAME || import.meta.env.TURN_USERNAME;
+  const turnPassword =
+    import.meta.env.VITE_TURN_PASSWORD ||
+    import.meta.env.TURN_PASSWORD ||
+    import.meta.env.VITE_TURN_CREDENTIAL ||
+    import.meta.env.TURN_CREDENTIAL;
+
+  if (turnUrl) {
+    const turnConfig = { urls: turnUrl };
+    if (turnUsername) turnConfig.username = turnUsername;
+    if (turnPassword) turnConfig.credential = turnPassword;
+    servers.push(turnConfig);
+  }
+
+  return { iceServers: servers };
 };
-
-/**
- * Creates a synthetic media stream for testing or headless environments
- * where no physical webcam or microphone is attached.
- */
-function createFallbackStream(isVideo = false) {
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  let audioTrack = null;
-  if (AudioCtx) {
-    try {
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const dst = ctx.createMediaStreamDestination();
-      const gain = ctx.createGain();
-      gain.gain.value = 0.0001; // silent
-      osc.connect(gain);
-      gain.connect(dst);
-      osc.start();
-      audioTrack = dst.stream.getAudioTracks()[0];
-    } catch {
-      // Ignore
-    }
-  }
-
-  let videoTrack = null;
-  if (isVideo) {
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 640;
-      canvas.height = 480;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#1e1b4b";
-      ctx.fillRect(0, 0, 640, 480);
-      ctx.fillStyle = "#818cf8";
-      ctx.font = "24px Outfit, sans-serif";
-      ctx.fillText("Chat Space Virtual Camera", 170, 240);
-      videoTrack = canvas.captureStream(15).getVideoTracks()[0];
-    } catch {
-      // Ignore
-    }
-  }
-
-  const tracks = [];
-  if (audioTrack) tracks.push(audioTrack);
-  if (videoTrack) tracks.push(videoTrack);
-  return new MediaStream(tracks);
-}
 
 export const CallProvider = ({ children }) => {
   const { socket, authUser } = useContext(AuthContext);
 
-  // Call States: 'idle' | 'calling' (outgoing) | 'incoming' | 'connected'
   const [callState, setCallState] = useState("idle");
-  const [callType, setCallType] = useState("voice"); // 'voice' | 'video'
+  const [callType, setCallType] = useState("voice");
 
-  // Participant info
-  const [activePartner, setActivePartner] = useState(null); // { _id, fullName, profilePic }
-  const [incomingCallData, setIncomingCallData] = useState(null); // { from, callerInfo, signal, callType }
+  const [activePartner, setActivePartner] = useState(null);
+  const [incomingCallData, setIncomingCallData] = useState(null);
 
-  // Media Streams
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
 
-  // In-call toggles & UI state
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [remoteMediaState, setRemoteMediaState] = useState({ isMuted: false, isVideoOff: false });
 
-  // Call timer
   const [durationSec, setDurationSec] = useState(0);
 
-  // Internal WebRTC refs
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
   const remoteStreamRef = useRef(null);
@@ -99,7 +63,6 @@ export const CallProvider = ({ children }) => {
   activePartnerRef.current = activePartner;
   callStateRef.current = callState;
 
-  // Format seconds to mm:ss
   const formatDuration = (totalSeconds) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
@@ -107,7 +70,6 @@ export const CallProvider = ({ children }) => {
     return `${pad(mins)}:${pad(secs)}`;
   };
 
-  // Start duration timer
   const startTimer = () => {
     stopTimer();
     setDurationSec(0);
@@ -123,14 +85,13 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-  // Clean up all local media tracks
   const stopLocalTracks = () => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         try {
           track.stop();
-        } catch {
-          // Ignore
+        } catch (e) {
+          void e;
         }
       });
       localStreamRef.current = null;
@@ -138,8 +99,8 @@ export const CallProvider = ({ children }) => {
     if (screenTrackRef.current) {
       try {
         screenTrackRef.current.stop();
-      } catch {
-        // Ignore
+      } catch (e) {
+        void e;
       }
       screenTrackRef.current = null;
     }
@@ -148,21 +109,23 @@ export const CallProvider = ({ children }) => {
     remoteStreamRef.current = null;
   };
 
-  // Close peer connection
   const closePeerConnection = () => {
     if (peerConnectionRef.current) {
       try {
         peerConnectionRef.current.onicecandidate = null;
         peerConnectionRef.current.ontrack = null;
+        peerConnectionRef.current.onconnectionstatechange = null;
+        peerConnectionRef.current.oniceconnectionstatechange = null;
+        peerConnectionRef.current.onsignalingstatechange = null;
+        peerConnectionRef.current.onicegatheringstatechange = null;
         peerConnectionRef.current.close();
-      } catch {
-        // Ignore
+      } catch (e) {
+        void e;
       }
       peerConnectionRef.current = null;
     }
   };
 
-  // Reset all call states
   const resetCallState = () => {
     callSounds.stopAllSounds();
     stopTimer();
@@ -182,28 +145,58 @@ export const CallProvider = ({ children }) => {
     setDurationSec(0);
   };
 
-  // Request user media safely
   const getUserMediaStream = async (wantVideo) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Camera and microphone access is not supported by your browser");
+    }
+
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("MediaDevices API unavailable");
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const constraints = {
         audio: true,
-        video: wantVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
-      });
-      return stream;
+        video: wantVideo
+          ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
+          : false,
+      };
+      return await navigator.mediaDevices.getUserMedia(constraints);
     } catch (mediaErr) {
-      console.warn("Could not capture native camera/microphone:", mediaErr.message);
-      toast("Using virtual media device", { icon: "🎙️" });
-      return createFallbackStream(wantVideo);
+      if (mediaErr.name === "NotAllowedError" || mediaErr.name === "PermissionDeniedError") {
+        if (wantVideo) {
+          throw new Error("Camera and microphone permission is required for a video call");
+        }
+        throw new Error("Microphone permission is required for a voice call");
+      }
+      if (mediaErr.name === "NotFoundError" || mediaErr.name === "DevicesNotFoundError") {
+        if (wantVideo) {
+          throw new Error("No camera or microphone was detected");
+        }
+        throw new Error("No microphone was detected");
+      }
+      if (mediaErr.name === "NotReadableError" || mediaErr.name === "TrackStartError") {
+        throw new Error("Camera or microphone is already in use by another application");
+      }
+      throw new Error(mediaErr.message || "Failed to access camera or microphone");
     }
   };
 
-  // Initialize RTCPeerConnection
+  const flushQueuedIceCandidates = async (pc) => {
+    while (iceCandidateQueue.current.length > 0) {
+      const candidate = iceCandidateQueue.current.shift();
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch {
+        try {
+          await pc.addIceCandidate(candidate);
+        } catch (err) {
+          console.warn("Could not add queued candidate:", err);
+        }
+      }
+    }
+  };
+
   const setupPeerConnection = (partnerId) => {
     closePeerConnection();
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const config = getIceServers();
+    const pc = new RTCPeerConnection(config);
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socket && partnerId) {
@@ -222,24 +215,41 @@ export const CallProvider = ({ children }) => {
         stream.addTrack(event.track);
       }
       remoteStreamRef.current = stream;
-      // Always create a new MediaStream instance so React state reference changes and triggers UI re-render
       setRemoteStream(new MediaStream(stream.getTracks()));
     };
 
     pc.onconnectionstatechange = () => {
-      console.log("WebRTC Connection State:", pc.connectionState);
+      console.log("[WebRTC] connectionState:", pc.connectionState);
       if (pc.connectionState === "connected") {
         setCallState("connected");
+      } else if (pc.connectionState === "failed") {
+        console.warn("[WebRTC] connection failed");
+        toast.error("Call connection failed");
+        endCall();
       }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log("[WebRTC] iceConnectionState:", pc.iceConnectionState);
+      if (pc.iceConnectionState === "failed") {
+        console.warn("[WebRTC] ICE connection failed");
+        toast.error("Call connection lost");
+        endCall();
+      }
+    };
+
+    pc.onsignalingstatechange = () => {
+      console.log("[WebRTC] signalingState:", pc.signalingState);
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log("[WebRTC] iceGatheringState:", pc.iceGatheringState);
     };
 
     peerConnectionRef.current = pc;
     return pc;
   };
 
-  // ==========================================================
-  // 1. INITIATE CALL (OUTGOING)
-  // ==========================================================
   const startCall = async ({ recipient, callType: requestedType = "voice" }) => {
     if (!socket || !socket.connected) {
       toast.error("You are not connected to the chat network");
@@ -300,14 +310,11 @@ export const CallProvider = ({ children }) => {
       });
     } catch (err) {
       console.error("Failed to start call:", err);
-      toast.error("Could not initialize call: " + err.message);
+      toast.error(err.message || "Could not initialize call");
       resetCallState();
     }
   };
 
-  // ==========================================================
-  // 2. ACCEPT INCOMING CALL
-  // ==========================================================
   const acceptCall = async () => {
     if (!incomingCallData || !incomingCallData.signal) {
       toast.error("No incoming call data available");
@@ -336,20 +343,7 @@ export const CallProvider = ({ children }) => {
       });
 
       await pc.setRemoteDescription(new RTCSessionDescription(signal));
-
-      // Process queued ICE candidates
-      while (iceCandidateQueue.current.length > 0) {
-        const candidate = iceCandidateQueue.current.shift();
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch {
-          try {
-            await pc.addIceCandidate(candidate);
-          } catch (e) {
-            console.warn("Could not add queued candidate:", e);
-          }
-        }
-      }
+      await flushQueuedIceCandidates(pc);
 
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -364,14 +358,11 @@ export const CallProvider = ({ children }) => {
       toast.success("Call connected");
     } catch (err) {
       console.error("Failed to answer call:", err);
-      toast.error("Could not connect call: " + err.message);
+      toast.error(err.message || "Could not connect call");
       resetCallState();
     }
   };
 
-  // ==========================================================
-  // 3. REJECT INCOMING CALL
-  // ==========================================================
   const rejectCall = () => {
     callSounds.stopAllSounds();
     callSounds.playEndTone();
@@ -387,9 +378,6 @@ export const CallProvider = ({ children }) => {
     toast("Call declined", { icon: "📵" });
   };
 
-  // ==========================================================
-  // 4. END ACTIVE / OUTGOING CALL
-  // ==========================================================
   const endCall = () => {
     const partnerId = activePartner?._id || incomingCallData?.from;
     if (partnerId && socket) {
@@ -401,9 +389,6 @@ export const CallProvider = ({ children }) => {
     toast("Call ended", { icon: "📞" });
   };
 
-  // ==========================================================
-  // 5. IN-CALL CONTROLS: MUTE, VIDEO, SCREEN SHARE, MINIMIZE
-  // ==========================================================
   const toggleMute = () => {
     if (localStreamRef.current) {
       const audioTracks = localStreamRef.current.getAudioTracks();
@@ -452,7 +437,6 @@ export const CallProvider = ({ children }) => {
     if (callType !== "video" || !peerConnectionRef.current) return;
 
     if (isScreenSharing) {
-      // Revert screen share back to camera video track
       try {
         if (screenTrackRef.current) {
           screenTrackRef.current.stop();
@@ -468,7 +452,6 @@ export const CallProvider = ({ children }) => {
           await videoSender.replaceTrack(cameraTrack);
         }
 
-        // Replace track in localStream
         if (localStreamRef.current) {
           const oldVideo = localStreamRef.current.getVideoTracks()[0];
           if (oldVideo) {
@@ -485,7 +468,6 @@ export const CallProvider = ({ children }) => {
         console.error("Revert screen share failed:", err);
       }
     } else {
-      // Start Screen Sharing
       try {
         if (!navigator.mediaDevices?.getDisplayMedia) {
           toast.error("Screen sharing is not supported by your browser");
@@ -508,7 +490,7 @@ export const CallProvider = ({ children }) => {
         }
 
         screenTrack.onended = () => {
-          toggleScreenShare(); // auto revert when user stops sharing via browser bar
+          toggleScreenShare();
         };
 
         if (localStreamRef.current) {
@@ -532,16 +514,11 @@ export const CallProvider = ({ children }) => {
     setIsMinimized((prev) => !prev);
   };
 
-  // ==========================================================
-  // 6. SOCKET EVENT LISTENERS
-  // ==========================================================
   useEffect(() => {
     if (!socket) return;
 
-    // Incoming Call listener
     const handleIncomingCall = (data) => {
       console.log("Incoming call event received:", data);
-      // If already in another call, reject automatically
       if (callStateRef.current !== "idle") {
         socket.emit("rejectCall", {
           to: data.from,
@@ -558,7 +535,6 @@ export const CallProvider = ({ children }) => {
       callSounds.playRingtone();
     };
 
-    // Call Accepted (Caller receives answer)
     const handleCallAccepted = async ({ signal, from }) => {
       console.log("Call accepted by recipient:", from);
       callSounds.stopAllSounds();
@@ -571,21 +547,7 @@ export const CallProvider = ({ children }) => {
             );
           }
 
-          // Flush any queued ICE candidates
-          while (iceCandidateQueue.current.length > 0) {
-            const candidate = iceCandidateQueue.current.shift();
-            try {
-              await peerConnectionRef.current.addIceCandidate(
-                new RTCIceCandidate(candidate)
-              );
-            } catch {
-              try {
-                await peerConnectionRef.current.addIceCandidate(candidate);
-              } catch (err2) {
-                console.warn("Could not add queued candidate:", err2);
-              }
-            }
-          }
+          await flushQueuedIceCandidates(peerConnectionRef.current);
 
           callSounds.playConnectTone();
           setCallState("connected");
@@ -603,35 +565,30 @@ export const CallProvider = ({ children }) => {
       }
     };
 
-    // Call Rejected
     const handleCallRejected = ({ reason }) => {
       toast(reason || "Call was declined", { icon: "📵" });
       callSounds.playEndTone();
       resetCallState();
     };
 
-    // Call Ended
     const handleCallEnded = ({ reason }) => {
       toast(reason || "Call ended", { icon: "📞" });
       callSounds.playEndTone();
       resetCallState();
     };
 
-    // Recipient Busy
     const handleCallBusy = ({ reason }) => {
       toast(reason || "User is currently busy on another call", { icon: "⏳" });
       callSounds.playEndTone();
       resetCallState();
     };
 
-    // Recipient Offline / Unavailable
     const handleCallUnavailable = ({ reason }) => {
       toast(reason || "User is currently offline", { icon: "⚠️" });
       callSounds.playEndTone();
       resetCallState();
     };
 
-    // ICE Candidate received
     const handleIceCandidate = async ({ candidate }) => {
       if (!candidate) return;
       const pc = peerConnectionRef.current;
@@ -650,7 +607,6 @@ export const CallProvider = ({ children }) => {
       }
     };
 
-    // Remote peer toggled mic or video
     const handleMediaToggled = ({ mediaType, enabled }) => {
       setRemoteMediaState((prev) => {
         if (mediaType === "audio") {
@@ -684,7 +640,6 @@ export const CallProvider = ({ children }) => {
     };
   }, [socket]);
 
-  // Clean up on component unmount
   useEffect(() => {
     return () => {
       resetCallState();

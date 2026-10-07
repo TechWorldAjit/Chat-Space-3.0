@@ -1,6 +1,3 @@
-// Web Audio API Sound Synthesizer for Voice & Video Calls
-// Eliminates external MP3 dependencies and works reliably across all browsers
-
 class CallSoundEffects {
   constructor() {
     this.audioCtx = null;
@@ -31,14 +28,13 @@ class CallSoundEffects {
       try {
         if (node.stop) node.stop();
         if (node.disconnect) node.disconnect();
-      } catch {
-        // Ignore already stopped nodes
+      } catch (e) {
+        void e;
       }
     });
     this.activeNodes = [];
   }
 
-  // Incoming Call Ringtone: Melodic electronic chime sequence
   playRingtone() {
     this.stopAllSounds();
     const ctx = this.getAudioContext();
@@ -47,7 +43,7 @@ class CallSoundEffects {
     const playChimeBurst = () => {
       try {
         const now = ctx.currentTime;
-        const notes = [587.33, 739.99, 880.0, 1174.66]; // D5, F#5, A5, D6 chord
+        const notes = [587.33, 739.99, 880.0, 1174.66];
         notes.forEach((freq, idx) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -76,7 +72,6 @@ class CallSoundEffects {
     this.ringInterval = setInterval(playChimeBurst, 2400);
   }
 
-  // Outgoing Calling Ringback: Realistic telecom ringback pulse
   playCallingTone() {
     this.stopAllSounds();
     const ctx = this.getAudioContext();
@@ -85,7 +80,7 @@ class CallSoundEffects {
     const playRingback = () => {
       try {
         const now = ctx.currentTime;
-        const freqs = [440, 480]; // Dual-tone 440Hz + 480Hz
+        const freqs = [440, 480];
         freqs.forEach((freq) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -115,7 +110,6 @@ class CallSoundEffects {
     this.ringInterval = setInterval(playRingback, 3500);
   }
 
-  // Call Connected: Crisp ascending notification chime
   playConnectTone() {
     this.stopAllSounds();
     const ctx = this.getAudioContext();
@@ -123,7 +117,7 @@ class CallSoundEffects {
 
     try {
       const now = ctx.currentTime;
-      const notes = [440, 659.25, 880]; // A4, E5, A5
+      const notes = [440, 659.25, 880];
       notes.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -141,12 +135,11 @@ class CallSoundEffects {
         osc.start(now + idx * 0.08);
         osc.stop(now + idx * 0.08 + 0.3);
       });
-    } catch {
-      // Ignore
+    } catch (e) {
+      void e;
     }
   }
 
-  // Call Ended: Gentle descending tone
   playEndTone() {
     this.stopAllSounds();
     const ctx = this.getAudioContext();
@@ -172,8 +165,8 @@ class CallSoundEffects {
         osc.start(now + idx * 0.1);
         osc.stop(now + idx * 0.1 + 0.25);
       });
-    } catch {
-      // Ignore
+    } catch (e) {
+      void e;
     }
   }
 }

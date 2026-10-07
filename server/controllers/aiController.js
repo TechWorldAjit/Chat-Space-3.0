@@ -9,10 +9,6 @@ import {
 } from "../lib/spaceai.js";
 import { io, userSocketMap } from "../lib/socket.js";
 
-/**
- * Handle AI Chat via dedicated endpoint
- * POST /api/ai/chat
- */
 export const aiChat = async (req, res) => {
   try {
     const { message, prompt } = req.body;
@@ -25,7 +21,6 @@ export const aiChat = async (req, res) => {
 
     const spaceAIUser = await getOrCreateSpaceAIUser();
 
-    // Save user's message
     const userMessage = await Message.create({
       senderId: userId,
       receiverId: spaceAIUser._id,
@@ -67,9 +62,9 @@ export const aiChat = async (req, res) => {
       });
     }
 
-    // Emit real-time notification
+    io.to(userId.toString()).emit("newMessage", aiMessage);
     const senderSocketId = userSocketMap[userId.toString()];
-    if (senderSocketId) {
+    if (senderSocketId && senderSocketId !== userId.toString()) {
       io.to(senderSocketId).emit("newMessage", aiMessage);
     }
 
@@ -89,10 +84,6 @@ export const aiChat = async (req, res) => {
   }
 };
 
-/**
- * Handle AI Image Generation via dedicated endpoint
- * POST /api/ai/generate-image
- */
 export const aiGenerateImage = async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -104,7 +95,6 @@ export const aiGenerateImage = async (req, res) => {
 
     const spaceAIUser = await getOrCreateSpaceAIUser();
 
-    // Save user's message
     const userMessage = await Message.create({
       senderId: userId,
       receiverId: spaceAIUser._id,
@@ -131,8 +121,9 @@ export const aiGenerateImage = async (req, res) => {
       });
     }
 
+    io.to(userId.toString()).emit("newMessage", aiMessage);
     const senderSocketId = userSocketMap[userId.toString()];
-    if (senderSocketId) {
+    if (senderSocketId && senderSocketId !== userId.toString()) {
       io.to(senderSocketId).emit("newMessage", aiMessage);
     }
 
@@ -152,10 +143,6 @@ export const aiGenerateImage = async (req, res) => {
   }
 };
 
-/**
- * Handle AI Group Conversation Summary
- * POST /api/ai/group-summary/:groupId
- */
 export const aiGroupSummary = async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -211,4 +198,3 @@ export const aiGroupSummary = async (req, res) => {
     });
   }
 };
-

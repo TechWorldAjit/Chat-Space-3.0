@@ -1,9 +1,5 @@
 import ChatFolder from "../models/ChatFolder.js";
 
-/**
- * Get all private folders for current user
- * GET /api/folders
- */
 export const getFolders = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -15,10 +11,6 @@ export const getFolders = async (req, res) => {
   }
 };
 
-/**
- * Create a new private folder
- * POST /api/folders
- */
 export const createFolder = async (req, res) => {
   try {
     const { name } = req.body;
@@ -28,7 +20,6 @@ export const createFolder = async (req, res) => {
       return res.json({ success: false, message: "Folder name is required" });
     }
 
-    // Check for duplicate folder name for this user
     const existing = await ChatFolder.findOne({
       userId,
       name: { $regex: new RegExp(`^${name.trim()}$`, "i") },
@@ -58,10 +49,6 @@ export const createFolder = async (req, res) => {
   }
 };
 
-/**
- * Rename an existing private folder
- * PUT /api/folders/:folderId
- */
 export const renameFolder = async (req, res) => {
   try {
     const { folderId } = req.params;
@@ -94,10 +81,6 @@ export const renameFolder = async (req, res) => {
   }
 };
 
-/**
- * Delete a private folder
- * DELETE /api/folders/:folderId
- */
 export const deleteFolder = async (req, res) => {
   try {
     const { folderId } = req.params;
@@ -121,10 +104,6 @@ export const deleteFolder = async (req, res) => {
   }
 };
 
-/**
- * Add a chat (direct or group) to a folder
- * POST /api/folders/:folderId/add-chat
- */
 export const addChatToFolder = async (req, res) => {
   try {
     const { folderId } = req.params;
@@ -146,7 +125,6 @@ export const addChatToFolder = async (req, res) => {
       });
     }
 
-    // Check if chat is already inside folder
     const alreadyAdded = folder.chats.some(
       (c) => c.chatId.toString() === chatId.toString()
     );
@@ -167,10 +145,6 @@ export const addChatToFolder = async (req, res) => {
   }
 };
 
-/**
- * Remove a chat from a folder
- * POST /api/folders/:folderId/remove-chat
- */
 export const removeChatFromFolder = async (req, res) => {
   try {
     const { folderId } = req.params;
