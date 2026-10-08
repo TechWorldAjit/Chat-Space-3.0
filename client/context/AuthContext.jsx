@@ -6,7 +6,7 @@ import { io } from "socket.io-client";
 const backendUrl =
   import.meta.env.VITE_BACKEND_URL ||
   (import.meta.env.MODE === "production"
-    ? "https://chat-space-eight.vercel.app"
+    ? "https://chat-space-3-backend.onrender.com"
     : "http://localhost:5001");
 axios.defaults.baseURL = backendUrl;
 

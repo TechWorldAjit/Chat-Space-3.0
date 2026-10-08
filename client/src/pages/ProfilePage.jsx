@@ -31,7 +31,52 @@ const ProfilePage = () => {
     }
   }, [selectedImg]);
 
-  const handleImageChange = (e) => {
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 512;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(new File([blob], "profile.webp", { type: "image/webp" }));
+              } else {
+                resolve(file);
+              }
+            },
+            "image/webp",
+            0.85
+          );
+        };
+        img.onerror = () => resolve(file);
+        img.src = event.target.result;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -40,12 +85,13 @@ const ProfilePage = () => {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Image file size must be less than 10MB");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Image file size must be less than 15MB");
       return;
     }
 
-    setSelectedImg(file);
+    const compressed = await compressImage(file);
+    setSelectedImg(compressed);
   };
 
   const uploadDirectToCloudinary = async (file) => {

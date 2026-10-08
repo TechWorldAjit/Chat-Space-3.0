@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://chat-space-eight.vercel.app/api/$1"
+      "destination": "https://chat-space-3-backend.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
