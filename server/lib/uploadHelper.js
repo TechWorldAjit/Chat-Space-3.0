@@ -22,18 +22,19 @@ export const saveUpload = async (base64OrUrl, fileName = "file", req = null) => 
   }
 
   try {
-    const uploadResponse = await cloudinary.uploader.upload(base64OrUrl, {
+    const uploadPromise = cloudinary.uploader.upload(base64OrUrl, {
       resource_type: "auto",
       folder: "chat_files",
     });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Cloudinary upload timeout")), 2500)
+    );
+    const uploadResponse = await Promise.race([uploadPromise, timeoutPromise]);
     if (uploadResponse && uploadResponse.secure_url) {
       return uploadResponse.secure_url;
     }
   } catch (cloudErr) {
-    console.error("Cloudinary upload failed:", cloudErr.message);
-    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
-      throw new Error("Cloud upload failed: " + cloudErr.message);
-    }
+    console.warn("Cloudinary upload fallback:", cloudErr.message);
   }
 
   try {

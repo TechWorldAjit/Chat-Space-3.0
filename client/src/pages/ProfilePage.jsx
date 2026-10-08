@@ -37,29 +37,32 @@ const ProfilePage = () => {
       reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
-          const maxDim = 512;
+          const size = 256;
           let width = img.width;
           let height = img.height;
+          let sx = 0;
+          let sy = 0;
+          let sWidth = width;
+          let sHeight = height;
           if (width > height) {
-            if (width > maxDim) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            }
+            sx = (width - height) / 2;
+            sWidth = height;
           } else {
-            if (height > maxDim) {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
+            sy = (height - width) / 2;
+            sHeight = width;
           }
           const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
+          canvas.width = size;
+          canvas.height = size;
           const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
+          ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, size, size);
+          const dataUrl = canvas.toDataURL("image/webp", 0.85);
           canvas.toBlob(
             (blob) => {
               if (blob) {
-                resolve(new File([blob], "profile.webp", { type: "image/webp" }));
+                const webpFile = new File([blob], "profile.webp", { type: "image/webp" });
+                webpFile.dataUrl = dataUrl;
+                resolve(webpFile);
               } else {
                 resolve(file);
               }
@@ -92,37 +95,56 @@ const ProfilePage = () => {
 
     const compressed = await compressImage(file);
     setSelectedImg(compressed);
+    if (compressed.dataUrl) {
+      setPreviewUrl(compressed.dataUrl);
+    }
   };
 
   const uploadDirectToCloudinary = async (file) => {
-    const { data: signData } = await axios.get("/api/auth/cloudinary-sign");
-    if (!signData || !signData.success) {
-      throw new Error(signData?.message || "Failed to get upload signature");
-    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("api_key", signData.apiKey);
-    formData.append("timestamp", signData.timestamp);
-    formData.append("signature", signData.signature);
-    formData.append("folder", signData.folder);
-
-    const uploadRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`,
-      {
-        method: "POST",
-        body: formData,
+    try {
+      const { data: signData } = await axios.get("/api/auth/cloudinary-sign", {
+        signal: controller.signal,
+      });
+      if (!signData || !signData.success) {
+        throw new Error(signData?.message || "Failed to get upload signature");
       }
-    );
 
-    const result = await uploadRes.json();
-    if (result.secure_url) {
-      return result.secure_url;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("api_key", signData.apiKey);
+      formData.append("timestamp", signData.timestamp);
+      formData.append("signature", signData.signature);
+      formData.append("folder", signData.folder);
+
+      const uploadRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`,
+        {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+      if (!uploadRes.ok) {
+        throw new Error("Direct upload failed");
+      }
+      const result = await uploadRes.json();
+      if (result.secure_url) {
+        return result.secure_url;
+      }
+      throw new Error(result.error?.message || "Cloudinary direct upload failed");
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
     }
-    throw new Error(result.error?.message || "Cloudinary direct upload failed");
   };
 
   const readFileAsDataUrl = (file) => {
+    if (file?.dataUrl) return Promise.resolve(file.dataUrl);
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
@@ -143,13 +165,22 @@ const ProfilePage = () => {
         return;
       }
 
-      let profilePicUrl = "";
+      let profilePicUrl = selectedImg.dataUrl || "";
+      if (!profilePicUrl) {
+        try {
+          profilePicUrl = await readFileAsDataUrl(selectedImg);
+        } catch {
+          profilePicUrl = "";
+        }
+      }
 
       try {
-        profilePicUrl = await uploadDirectToCloudinary(selectedImg);
-      } catch (directErr) {
-        console.warn("Direct upload failed, falling back to server payload:", directErr.message);
-        profilePicUrl = await readFileAsDataUrl(selectedImg);
+        const directUrl = await uploadDirectToCloudinary(selectedImg);
+        if (directUrl) {
+          profilePicUrl = directUrl;
+        }
+      } catch {
+        console.warn("Direct upload fallback to resilient backend update");
       }
 
       const success = await updateProfile({

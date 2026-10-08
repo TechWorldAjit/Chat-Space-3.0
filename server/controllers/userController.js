@@ -2,6 +2,7 @@ import { generateToken } from "../lib/utils.js";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
+import { saveUpload } from "../lib/uploadHelper.js";
 
 export const signup = async (req, res) => {
   const { fullName, email, password, bio } = req.body;
@@ -138,13 +139,10 @@ export const updateProfile = async (req, res) => {
 
     if (profilePic && typeof profilePic === "string") {
       if (profilePic.startsWith("data:image")) {
-        const upload = await cloudinary.uploader.upload(profilePic, {
-          folder: "profile_pics",
-          resource_type: "image",
-          transformation: [{ width: 256, height: 256, crop: "fill" }],
-        });
-        if (upload && upload.secure_url) {
-          updateFields.profilePic = upload.secure_url;
+        try {
+          updateFields.profilePic = await saveUpload(profilePic, "profile.webp", req);
+        } catch {
+          updateFields.profilePic = profilePic;
         }
       } else if (profilePic.startsWith("http://") || profilePic.startsWith("https://")) {
         updateFields.profilePic = profilePic;
@@ -159,7 +157,7 @@ export const updateProfile = async (req, res) => {
 
     return res.json({ success: true, user: updatedUser });
   } catch (error) {
-    console.error("Update profile error:", error.message);
-    res.json({ success: false, message: error.message });
+    console.error("Update profile error:", error?.message || error);
+    res.json({ success: false, message: error?.message || "Failed to update profile" });
   }
 };

@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (body) => {
     try {
-      const { data } = await axios.put("/api/auth/update-profile", body);
+      const { data } = await axios.put("/api/auth/update-profile", body, { timeout: 15000 });
       if (data.success) {
         setAuthUser(data.user);
         toast.success("Profile updated successfully");
