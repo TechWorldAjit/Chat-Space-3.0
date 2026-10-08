@@ -2,9 +2,11 @@ import mongoose from "mongoose";
 import "dotenv/config";
 import dns from "node:dns";
 
-try {
-  dns.setServers(["8.8.8.8", "1.1.1.1"]);
-} catch {}
+if (process.platform === "darwin") {
+  try {
+    dns.setServers(["8.8.8.8", "1.1.1.1"]);
+  } catch {}
+}
 
 let isConnecting = false;
 
@@ -22,24 +24,35 @@ export const connectDB = async () => {
     throw new Error(errorMsg);
   }
 
+  const primaryUri = mongoUri.trim();
+  const fallbackUri = primaryUri.startsWith("mongodb+srv://")
+    ? "mongodb://dfp:Ajit%401234@ac-u2qwwcv-shard-00-00.qlnzjij.mongodb.net:27017,ac-u2qwwcv-shard-00-01.qlnzjij.mongodb.net:27017,ac-u2qwwcv-shard-00-02.qlnzjij.mongodb.net:27017/?ssl=true&replicaSet=atlas-peitxr-shard-0&authSource=admin&appName=Cluster0"
+    : "mongodb+srv://dfp:Ajit%401234@cluster0.qlnzjij.mongodb.net/?appName=Cluster0";
+
+  const connectOptions = {
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+  };
+
   try {
-    const sanitizedUri = mongoUri.replace(/:[^:@]*@/, ":****@");
+    const sanitizedUri = primaryUri.replace(/:[^:@]*@/, ":****@");
     console.log(`Connecting to MongoDB (${sanitizedUri})...`);
-
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 8000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 50,
-      minPoolSize: 5,
-      retryWrites: true,
-    });
-
+    await mongoose.connect(primaryUri, connectOptions);
     console.log("Successfully connected to MongoDB");
     isConnecting = false;
-  } catch (error) {
-    isConnecting = false;
-    console.error("MongoDB connection failed:", error.message);
-    throw error;
+  } catch (primaryError) {
+    console.warn("Primary MongoDB URI connection failed:", primaryError.message);
+    try {
+      const sanitizedFallback = fallbackUri.replace(/:[^:@]*@/, ":****@");
+      console.log(`Retrying with alternate MongoDB format (${sanitizedFallback})...`);
+      await mongoose.connect(fallbackUri, connectOptions);
+      console.log("Successfully connected to MongoDB via fallback format");
+      isConnecting = false;
+    } catch (fallbackError) {
+      isConnecting = false;
+      console.error("All MongoDB connection attempts failed:", fallbackError.message);
+      throw primaryError;
+    }
   }
 };
 

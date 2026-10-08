@@ -2,6 +2,7 @@ import express from "express";
 import "dotenv/config";
 import cors from "cors";
 import http from "http";
+import mongoose from "mongoose";
 import { connectDB } from "./lib/db.js";
 import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
@@ -28,7 +29,40 @@ app.use("/uploads", express.static("uploads"));
 app.get("/", (req, res) => {
   res.send("Welcome to Quick Chat API");
 });
-app.use("/api/status", (req, res) => res.json({ success: true, message: "Server is live" }));
+app.use("/api/status", async (req, res) => {
+  let dbConnected = mongoose.connection.readyState === 1;
+  let dbError = null;
+  if (!dbConnected) {
+    try {
+      await connectDB();
+      dbConnected = true;
+    } catch (err) {
+      dbError = err.message;
+    }
+  }
+  res.json({
+    success: true,
+    message: "Server is live",
+    dbConnected,
+    dbError,
+  });
+});
+
+app.use(async (req, res, next) => {
+  if (req.path.startsWith("/api/") && req.path !== "/api/status") {
+    if (mongoose.connection.readyState !== 1) {
+      try {
+        await connectDB();
+      } catch (err) {
+        return res.json({
+          success: false,
+          message: "Database connection unavailable: " + (err.message || "Please check connection"),
+        });
+      }
+    }
+  }
+  next();
+});
 
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
